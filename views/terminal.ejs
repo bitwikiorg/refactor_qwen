@@ -1,0 +1,191 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title || 'CORE AI Terminal' %></title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/terminal.css">
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/terminal.js"></script>
+</head>
+<body class="terminal-page">
+  <div class="container terminal-container">
+    <%- include('partials/navbar') %>
+    
+    <header class="page-header">
+      <h1>CORE AI Terminal</h1>
+      <div class="status-indicator" id="socket-status" title="Disconnected"></div>
+    </header>
+
+    <main class="terminal-interface">
+      <div id="terminal-output" class="terminal-output"></div>
+      
+      <form id="terminal-form" class="terminal-form">
+        <div class="terminal-input-wrapper">
+          <span class="terminal-prompt">&gt;</span>
+          <input type="text" id="terminal-input" class="terminal-input" autocomplete="off" autofocus placeholder="Type a command...">
+        </div>
+      </form>
+    </main>
+
+    <footer class="terminal-footer">
+      <div class="terminal-status">
+        <span id="memory-status">Memory: Operational</span>
+        <span id="research-status">Research: Online</span>
+        <span id="ai-status">AI: Connected</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="/js/system-status.js"></script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COREAI Research System</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/terminal.css">
+    <link rel="stylesheet" href="/css/status-indicators.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Fallback if Socket.IO isn't loaded from the server
+        if (typeof io === 'undefined') {
+            console.log('Loading Socket.IO from CDN');
+            document.write('<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"><\/script>');
+        }
+    </script>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">COREAI Research System</div>
+        <nav class="nav">
+            <a href="/" class="nav-link active">[TERMINAL]</a>
+            <a href="/research" class="nav-link">[RESULTS]</a>
+            <a href="/self" class="nav-link">[SELF]</a>
+            <a href="/memory" class="nav-link">[MEMORY]</a>
+            <a href="/admin" class="nav-link">[ADMIN]</a>
+        </nav>
+    </div>
+
+    <div class="terminal-container">
+        <div class="terminal-header">
+            <div class="terminal-title">CORE AI TERMINAL v1.0</div>
+            <button class="help-button" id="help-button">HELP</button>
+        </div>
+
+        <div id="output" class="terminal-output"></div>
+
+        <div class="terminal-input-line">
+            <span class="prompt">></span>
+            <input type="text" id="command-input" spellcheck="false" placeholder="">
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div class="progress-bar">
+            <div id="progress-fill"></div>
+        </div>
+        <div id="progress-text">Ready</div>
+    </div>
+
+
+    <!-- Sidebar for command references -->
+    <div class="sidebar hidden">
+        <div class="sidebar-header">
+            <h3>CORE AI COMMANDS</h3>
+            <button id="close-sidebar">×</button>
+        </div>
+        <div class="sidebar-content">
+            <div class="command-group">
+                <h4>GITHUB COMMANDS</h4>
+                <ul>
+                    <li><code>github:status</code> - Check GitHub connection</li>
+                    <li><code>github:sync</code> - Sync research to GitHub</li>
+                    <li><code>github:test</code> - Test GitHub connection</li>
+                </ul>
+            </div>
+            <div class="command-group">
+                <h4>RESEARCH COMMANDS</h4>
+                <ul>
+                    <li><code>research "query"</code> - Research a topic</li>
+                    <li><code>depth 1-5</code> - Set research depth</li>
+                    <li><code>breadth 2-10</code> - Set research breadth</li>
+                </ul>
+            </div>
+            <div class="command-group">
+                <h4>SYSTEM COMMANDS</h4>
+                <ul>
+                    <li><code>help</code> - Show this help menu</li>
+                    <li><code>clear</code> - Clear terminal</li>
+                    <li><code>status</code> - Check system status</li>
+                    <li><code>models</code> - Show available AI models</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Popup -->
+    <div class="help-popup" id="help-popup">
+        <button class="help-close" id="help-close">&times;</button>
+        <h3>AVAILABLE COMMANDS</h3>
+        <div class="command-group">
+            <h4>RESEARCH</h4>
+            <ul>
+                <li><code>research "query"</code> - Research a topic (quotes required)</li>
+                <li><code>depth 1-5</code> - Set research depth (default: 3)</li>
+                <li><code>breadth 2-10</code> - Set research breadth (default: 5)</li>
+            </ul>
+        </div>
+        <div class="command-group">
+            <h4>AI ASSISTANT</h4>
+            <ul>
+                <li><code>chat</code> or <code>ai</code> - Toggle AI chat mode</li>
+                <li><code>exit</code> - Exit AI chat mode (when in chat mode)</li>
+            </ul>
+        </div>
+        <div class="command-group">
+            <h4>GITHUB</h4>
+            <ul>
+                <li><code>github:status</code> - Check GitHub connection</li>
+                <li><code>github:sync</code> - Sync research to GitHub</li>
+                <li><code>github:test</code> - Test GitHub connection</li>
+            </ul>
+        </div>
+        <div class="command-group">
+            <h4>SYSTEM</h4>
+            <ul>
+                <li><code>help</code> - Show this help menu</li>
+                <li><code>clear</code> - Clear terminal</li>
+                <li><code>status</code> - Check system status</li>
+                <li><code>models</code> - Show available AI models</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Socket.IO Scripts -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js" integrity="sha384-/KNQL8Nu5gCHLqwqfQjA689Hhoqgi2S84SNUxC3roTe4EhJ9AfLkp8QiQcU8AMzI" crossorigin="anonymous"></script>
+    <script src="/js/socket-client.js"></script>
+
+    <!-- Terminal Scripts -->
+    <script src="/js/terminal.js"></script>
+    <script>
+        // Add help button functionality
+        document.getElementById('help-button').addEventListener('click', function() {
+            document.getElementById('help-popup').classList.remove('hidden');
+        });
+        document.getElementById('help-close').addEventListener('click', function() {
+            document.getElementById('help-popup').classList.add('hidden');
+        });
+
+    </script>
+</body>
+</html>

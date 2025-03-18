@@ -1,0 +1,26 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>COREAI Research System - <%= title %></title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">
+  <link rel="stylesheet" href="/css/styles.css">
+  <% if (title === 'Terminal') { %>
+  <link rel="stylesheet" href="/css/terminal.css">
+  <% } else if (title === 'Research') { %>
+  <link rel="stylesheet" href="/css/research.css">
+  <% } else if (title === 'Memory') { %>
+  <link rel="stylesheet" href="/css/status-indicators.css">
+  <% } else if (title === 'Self-Management') { %>
+  <link rel="stylesheet" href="/css/self.css">
+  <% } else if (title === 'Admin') { %>
+  <link rel="stylesheet" href="/css/admin.css">
+  <% } else if (title === 'GitHub Integration') { %>
+  <link rel="stylesheet" href="/css/github.css">
+  <% } %>
+</head>
+<body>
+  <%- include('navbar') %>
+  <div class="main-content">
