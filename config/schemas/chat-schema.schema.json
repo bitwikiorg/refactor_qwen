@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "sanitizeOptions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "rateLimit": {
+      "type": "object",
+      "properties": {
+        "windowMs": {
+          "type": "number"
+        },
+        "maxRequestsPerWindow": {
+          "type": "number"
+        },
+        "delayAfter": {
+          "type": "number"
+        }
+      },
+      "required": ["windowMs"]
+    }
+  },
+  "additionalProperties": false
+}

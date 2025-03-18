@@ -1,0 +1,168 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CORE AI Research Configuration Schema",
+  "description": "A schema for validating CORE AI research configurations",
+  "type": "object",
+  "properties": {
+    "app_info": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "description": { "type": "string" },
+        "plugins": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["name", "version", "description"]
+    },
+    "ai_providers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "use_global_api_key": { "type": "boolean" },
+          "global_api_key": { "type": "string" },
+          "endpoints": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "models": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "api_key": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+                "parameters": {
+                  "type": "object",
+                  "additionalProperties": { "type": "number" }
+                },
+                "custom_settings": {
+                  "type": "object",
+                  "properties": {
+                    "use_specific_models": { "type": "boolean" },
+                    "parameter_sets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": { "type": ["number", "string"] }
+                      }
+                    }
+                  }
+                }
+              },
+              "required": ["name", "parameters"]
+            }
+          }
+        },
+        "required": ["use_global_api_key", "global_api_key", "endpoints", "models"]
+      }
+    },
+    "memory_system": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "key": { "type": "string" },
+              "max_size": { "type": "number" },
+              "ai_settings": {
+                "type": "object",
+                "properties": {
+                  "model_id": { "type": "string" },
+                  "parameters": {
+                    "type": "object",
+                    "additionalProperties": { "type": ["number", "string"] }
+                  }
+                },
+                "required": ["model_id", "parameters"]
+              }
+            },
+            "required": ["name", "key", "max_size", "ai_settings"]
+          }
+        },
+        "maintenance": {
+          "type": "object",
+          "properties": {
+            "auto_consolidate": { "type": "boolean" },
+            "consolidation_threshold": { "type": "number" }
+          },
+          "required": ["auto_consolidate", "consolidation_threshold"]
+        }
+      },
+      "required": ["enabled", "layers", "maintenance"]
+    },
+    "research_engine": {
+      "type": "object",
+      "properties": {
+        "default_depth": { "type": "number" },
+        "breadth_factor": { "type": "number" }
+      },
+      "required": ["default_depth", "breadth_factor"]
+    },
+    "workflows": {
+      "type": "object",
+      "properties": {
+        "task_scheduler": {
+          "type": "object",
+          "properties": {
+            "tasks_directory": { "type": "string" },
+            "cron_interval": { "type": "string" },
+            "concurrency_limit": { "type": "number" }
+          },
+          "required": ["tasks_directory", "cron_interval", "concurrency_limit"]
+        }
+      },
+      "required": ["task_scheduler"]
+    },
+    "integrations": {
+      "type": "object",
+      "properties": {
+        "github": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "token": { "type": "string" },
+            "repo_config": {
+              "type": "object",
+              "properties": {
+                "owner": { "type": "string" },
+                "repo": { "type": "string" },
+                "branch": { "type": "string" }
+              },
+              "required": ["owner", "repo", "branch"]
+            },
+            "base_url": { "type": "string" }
+          },
+          "required": ["enabled", "token", "repo_config", "base_url"]
+        },
+        "google_sheets": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "api_key": { "type": "string" },
+            "spreadsheet_id": { "type": "string" },
+            "scopes": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["enabled", "api_key", "spreadsheet_id", "scopes"]
+        },
+        "slack": {
+          "type": "object",
+          "properties": {
+            "webhook_url": { "type": "string" },
+            "is_enabled": { "type": "boolean" }
+          },
+          "required": ["webhook_url", "is_enabled"]
+        }
+      },
+      "required": ["github", "google_sheets", "slack"]
+    }
+  },
+  "required": ["app_info", "ai_providers", "memory_system", "research_engine", "workflows", "integrations"]
+}

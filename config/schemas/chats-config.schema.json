@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "/core/config/chats",
+  "title": "Chat Configuration Validation",
+  "type": "object",
+  "properties": {
+    "$ref":"#/defs/rateLimiterConfig"
+},
+"required":["ratelimit","sanitizer"],
+"$defs":{
+"rateLimiterConfig":{
+"type":"object",
+"properties":{
+     windowMs:{type:"number",minimum:"60000"},
+     maxRequestsPerWindow:{type:"integer",minimum:"1"}
+},
+required:["windowMs","maxRequestsPerWindow"]
+},
+
+"sanitizerConfig":{
+"type":"object",
+properties:{
+allowedTags:{type:"array",items:{type:"string"}},
+allowedAttributes:{
+ type:"object",
+ additionalProperties:{
+     type:Array,itemType:string
+ }
+},
+minCharLength:{type:number,minInclusive="5"},
+maxContentLength{max:number,maxInclusive="256"}
+},required:["allowedTags"]
+}
+}}
