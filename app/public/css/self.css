@@ -231,6 +231,11 @@ textarea.editor {
     border-bottom: 1px solid var(--border-color);
 }
 
+/* Additional style for Token Classifier Prompt header spacing */
+.prompt-selector h3 {
+  margin-top: 20px;
+}
+
 /* Task styling */
 .task-item {
     background-color: var(--sidebar-bg);

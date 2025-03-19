@@ -18,6 +18,7 @@ The COREAI Research System is an integrated platform that combines AI-powered re
 - Communicate directly with the AI assistant via a terminal interface
 - Natural language processing for commands and queries
 - System integration for executing research and managing tasks
+- Now displays real-time connection status for both Chat and Research modules via the /api/terminal/status endpoint.
 
 ### Memory System
 - Multi-layered memory architecture (short-term, long-term, episodic, semantic)

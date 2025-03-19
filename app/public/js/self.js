@@ -24,7 +24,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const selfEditor = document.getElementById('selfEditor');
   const currentModulePath = document.getElementById('currentModulePath');
   const moduleEditor = document.getElementById('moduleEditor');
-
+  // Token Classifier Prompt elements
+  const tokenPromptSelect = document.getElementById('tokenPromptSelect');
+  const tokenPromptStatus = document.getElementById('tokenPromptStatus');
+  const setTokenPromptBtn = document.getElementById('setTokenPromptBtn');
+  const viewTokenPromptBtn = document.getElementById('viewTokenPromptBtn');
 
   // Initialize UI elements
   initializeSelfUI();
@@ -106,6 +110,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pushTasksBtn) pushTasksBtn.addEventListener('click', pushTasksToGitHub);
     if (pullTasksBtn) pullTasksBtn.addEventListener('click', pullTasksFromGitHub);
 
+    // Token Classifier Prompt event listeners
+    if(setTokenPromptBtn) setTokenPromptBtn.addEventListener('click', setTokenPrompt);
+    if(viewTokenPromptBtn) viewTokenPromptBtn.addEventListener('click', viewTokenPrompt);
 
     // Verify GitHub connection
     function checkGitHubConnection() {
@@ -613,6 +620,36 @@ document.addEventListener('DOMContentLoaded', () => {
       updateGitHubButtons(false);
       return false;
     }
+  }
+
+  function setTokenPrompt() {
+    const selectedPath = tokenPromptSelect.value;
+    const useDefault = !selectedPath;
+    socket.emit('self:set-prompt', {
+      type: 'token',
+      path: selectedPath,
+      useDefault
+    }, (response) => {
+      if (response.success) {
+        addActivity(response.message);
+        tokenPromptStatus.textContent = useDefault 
+          ? 'Using default prompt' 
+          : `Using custom prompt: ${selectedPath}`;
+      } else {
+        alert(`Error setting token prompt: ${response.error || 'Unknown error'}`);
+      }
+    });
+  }
+
+  function viewTokenPrompt() {
+    socket.emit('self:get-prompts', (response) => {
+      if (response.success) {
+        const tokenPrompt = response.prompts.token || 'Default token classifier prompt';
+        showPromptView('token', tokenPrompt);
+      } else {
+        alert(`Error fetching token prompt: ${response.error || 'Unknown error'}`);
+      }
+    });
   }
 
 });

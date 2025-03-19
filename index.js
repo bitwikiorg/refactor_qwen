@@ -6,6 +6,7 @@ import express from "express";
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { fileURLToPath } from "url";
+import { classifyTokens } from "./token_classifier.js";
 
 // Get directory name in ESM
 const __filename = fileURLToPath(import.meta.url);
@@ -70,6 +71,19 @@ const getVersion = () => process.env.APP_VERSION || "2.0.0";
 app.use((req, res, next) => {
   res.setHeader("X-Core-Version", getVersion());
   next();
+});
+
+app.post('/api/token/classify', express.json(), (req, res) => {
+  const { input } = req.body;
+  if (!input) {
+    return res.status(400).json({ success: false, error: "Input is required" });
+  }
+  try {
+    const result = classifyTokens(input);
+    res.json({ success: true, classifications: result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 // Start server function

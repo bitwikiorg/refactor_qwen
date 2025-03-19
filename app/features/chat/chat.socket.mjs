@@ -2,6 +2,7 @@ import uuidv4 from "uuid";
 import sanitizeHtml from "sanitize-html";
 import ChatService from './service.mjs';
 import createLoggerInstance from '../../services/logger';
+import { inject } from '../../../di-container'; // added missing import
 
 const chatLogger = createLoggerInstance({ module: 'chat' });
 
@@ -50,13 +51,14 @@ export const chatNamespaceHandler = async (ioContainer = {}) => {
 
 // Primary initialization entry point  
 export async function initialize(io) {
-
+  if (!io) {
+    throw new Error("Socket connection not available");
+  }
   await chatNamespaceHandler({ get: (id) => inject(id) });
-
   io.on("connection", mainConnectionHandler);
-
 }
 
-async mainConnectionHandler(socket){
-
+// Corrected function declaration for connection handler
+async function mainConnectionHandler(socket) {
+  // ...existing code...
 }
