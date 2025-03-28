@@ -1,27 +1,31 @@
-import * as path from "path";
-import * as process from "process";
-import * as fs from "fs/promises";
-import { join } from "path";
-import express from "express";
-import http from "http";
-import { Server as SocketIOServer } from "socket.io";
-import { fileURLToPath } from "url";
-import { classifyTokens } from "./token_classifier.js";
+import * as path from 'path';
+import * as process from 'process';
+import { join } from 'path';
+import express from 'express';
+import http from 'http';
+import { Server as SocketIOServer } from 'socket.io';
+import { fileURLToPath } from 'url';
+import { classifyTokens } from './app/features/token_classifier/utils.js';
+import { handleErrors } from './app/infrastructure/error-handler.mjs';
 
 // Get directory name in ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Import existing services
-import { getLoggerInstance } from "./app/services/logger.mjs";
-import { loadModule } from "./app/services/di-container.mjs";
-import MemorySystem from "./app/features/memory/service.mjs";
+import { getLoggerInstance } from './app/services/logger.mjs';
+import { loadModule } from './app/services/di-container.mjs';
+import MemorySystem from './app/features/memory/service.mjs';
 
 // Create app and server instances
 const app = express();
 const server = http.createServer(app);
 // Initialize logger first
-const loggerInstance = getLoggerInstance({ module: "Core" });
+const loggerInstance = getLoggerInstance({ module: 'Core' });
+
+// Ensure static files are served correctly
+app.use('/css', express.static(__dirname + '/public/css'));
+app.use('/js', express.static(__dirname + '/public/js'));
 
 // Create a single Socket.IO instance and prevent redundant initialization
 let io = null;
@@ -30,10 +34,10 @@ function getSocketIO() {
     try {
       io = new SocketIOServer(server, {
         cors: {
-          origin: "*",
-          methods: ["GET", "POST"],
+          origin: ['https://trusted-domain.com'], // Restrict to trusted domains
+          methods: ['GET', 'POST'],
         },
-        transports: ["websocket", "polling"],
+        transports: ['websocket', 'polling'],
         pingTimeout: 60000,
         connectTimeout: 60000,
         // Limit reconnection attempts
@@ -56,7 +60,7 @@ function getSocketIO() {
         });
       });
       
-      loggerInstance.info("Socket.IO initialized successfully");
+      loggerInstance.info('Socket.IO initialized successfully');
     } catch (error) {
       loggerInstance.error(`Failed to initialize Socket.IO: ${error.message}`);
     }
@@ -65,18 +69,18 @@ function getSocketIO() {
 }
 io = getSocketIO();
 
-const getVersion = () => process.env.APP_VERSION || "2.0.0";
+const getVersion = () => process.env.APP_VERSION || '2.0.0';
 
 // Apply version header middleware
 app.use((req, res, next) => {
-  res.setHeader("X-Core-Version", getVersion());
+  res.setHeader('X-Core-Version', getVersion());
   next();
 });
 
 app.post('/api/token/classify', express.json(), (req, res) => {
   const { input } = req.body;
   if (!input) {
-    return res.status(400).json({ success: false, error: "Input is required" });
+    return res.status(400).json({ success: false, error: 'Input is required' });
   }
   try {
     const result = classifyTokens(input);
@@ -86,66 +90,86 @@ app.post('/api/token/classify', express.json(), (req, res) => {
   }
 });
 
+app.post('/api/token/classify/single', express.json(), (req, res) => {
+  const { token } = req.body;
+  if (!token) {
+    return res.status(400).json({ success: false, error: 'Token is required' });
+  }
+  try {
+    const result = classifyTokens(token)[token];
+    res.json({ success: true, classification: result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update the /self route to render the appropriate view (e.g., self.ejs)
+app.get('/self', (req, res) => {
+  res.render('self', { title: 'Self-Management' });
+});
+
+app.use(handleErrors);
+
 // Start server function
 async function startServer() {
   // Initialize main application routes
-  const { default: routes } = await import("./app/routes.js");
+  const { default: routes } = await import('./app/routes.js');
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
   // Serve static files
-  app.use(express.static(path.join(__dirname, "app/public")));
+  app.use(express.static(path.join(__dirname, 'app/public')));
 
   // Setup view engine if using templates
-  app.set("views", path.join(__dirname, "app/views"));
-  app.set("view engine", "ejs"); // Assuming EJS as the template engine
+  app.set('views', path.join(__dirname, 'app/views'));
+  app.set('view engine', 'ejs'); // Assuming EJS as the template engine
 
   // Use routes from routes.js
   app.use(routes);
 
-  loggerInstance.info("Main application routes initialized");
+  loggerInstance.info('Main application routes initialized');
 
   // Load modules dynamically
   const AuthModulePath = path.join(
     __dirname,
-    "app",
-    "features",
-    "auth",
-    "index.mjs",
+    'app',
+    'features',
+    'auth',
+    'index.mjs',
   );
   const ChatModulePath = path.join(
     __dirname,
-    "app",
-    "features",
-    "chat",
-    "index.mjs",
+    'app',
+    'features',
+    'chat',
+    'index.mjs',
   );
   const TerminalModulePath = path.join(
     __dirname,
-    "app",
-    "features",
-    "terminal",
-    "index.mjs",
+    'app',
+    'features',
+    'terminal',
+    'index.mjs',
   );
   const BraveModulePath = path.join(
     __dirname,
-    "app",
-    "features",
-    "brave",
-    "index.mjs",
+    'app',
+    'features',
+    'brave',
+    'index.mjs',
   );
   const ResearchAPIPath = path.join(
     __dirname,
-    "app",
-    "features",
-    "research",
-    "index.mjs",
+    'app',
+    'features',
+    'research',
+    'index.mjs',
   );
   const SchedulerPath = path.join(
     __dirname,
-    "app",
-    "services",
-    "scheduler.mjs",
+    'app',
+    'services',
+    'scheduler.mjs',
   );
 
   // Load modules with error handling
@@ -158,54 +182,54 @@ async function startServer() {
 
   try {
     AuthModule = await loadModule(AuthModulePath);
-    loggerInstance.info("Auth module loaded successfully");
+    loggerInstance.info('Auth module loaded successfully');
   } catch (err) {
     loggerInstance.error(`Failed to load Auth module: ${err.message}`);
   }
 
   try {
     ChatModule = await loadModule(ChatModulePath);
-    loggerInstance.info("Chat module loaded successfully");
+    loggerInstance.info('Chat module loaded successfully');
   } catch (err) {
     loggerInstance.error(`Failed to load Chat module: ${err.message}`);
   }
 
   try {
     TerminalModule = await loadModule(TerminalModulePath);
-    loggerInstance.info("Terminal module loaded successfully");
+    loggerInstance.info('Terminal module loaded successfully');
   } catch (err) {
     loggerInstance.error(`Failed to load Terminal module: ${err.message}`);
   }
 
   try {
     BraveModule = await loadModule(BraveModulePath);
-    loggerInstance.info("Brave module loaded successfully");
+    loggerInstance.info('Brave module loaded successfully');
   } catch (err) {
     loggerInstance.error(`Failed to load Brave module: ${err.message}`);
   }
 
   try {
     ResearchAPI = await loadModule(ResearchAPIPath);
-    loggerInstance.info("Research API module loaded successfully");
+    loggerInstance.info('Research API module loaded successfully');
   } catch (err) {
     loggerInstance.error(`Failed to load Research API module: ${err.message}`);
   }
 
   try {
     Scheduler = await loadModule(SchedulerPath);
-    loggerInstance.info("Scheduler module loaded successfully");
+    loggerInstance.info('Scheduler module loaded successfully');
   } catch (err) {
     loggerInstance.error(`Failed to load Scheduler module: ${err.message}`);
   }
 
   // Initialize core modules
   if (AuthModule?.default) {
-    loggerInstance.info("Initializing Auth module");
+    loggerInstance.info('Initializing Auth module');
     AuthModule.default.init(app);
   }
 
   if (ChatModule) {
-    loggerInstance.info("Initializing Chat module");
+    loggerInstance.info('Initializing Chat module');
     ChatModule.initializeCoreAI(app);
 
     if (io) {
@@ -213,21 +237,21 @@ async function startServer() {
       try {
         const chatSocketPath = join(
           __dirname,
-          "app",
-          "features",
-          "chat",
-          "socket.mjs",
+          'app',
+          'features',
+          'chat',
+          'socket.mjs',
         );
         const ChatSocket = await loadModule(chatSocketPath);
         if ((ChatSocket?.default?.init || ChatSocket?.init) && io) {
           const initFn = ChatSocket?.default?.init || ChatSocket?.init;
-          if (typeof initFn === "function") {
-            initFn(io.of("/chat"));
-            loggerInstance.info("Chat sockets initialized");
+          if (typeof initFn === 'function') {
+            initFn(io.of('/chat'));
+            loggerInstance.info('Chat sockets initialized');
           }
         } else if (!io) {
           loggerInstance.warn(
-            "Chat socket initialization skipped - Socket.IO not available",
+            'Chat socket initialization skipped - Socket.IO not available',
           );
         }
       } catch (error) {
@@ -240,29 +264,25 @@ async function startServer() {
 
   // Initialize optional modules if available
   if (TerminalModule?.default) {
-    loggerInstance.info("Initializing Terminal module");
+    loggerInstance.info('Initializing Terminal module');
     TerminalModule.default.init(app, io);
 
     // Initialize Terminal socket handlers
     try {
       const terminalSocketPath = join(
         __dirname,
-        "app",
-        "features",
-        "terminal",
-        "socket.mjs",
+        'app',
+        'features',
+        'terminal',
+        'socket.mjs',
       );
       const TerminalSocket = await loadModule(terminalSocketPath);
       if (TerminalSocket?.initTerminalSocket && io) {
         TerminalSocket.initTerminalSocket(io);
-        loggerInstance.info("Terminal socket handlers initialized");
-      } else if (!io) {
-        loggerInstance.warn(
-          "Terminal socket initialization skipped - Socket.IO not available",
-        );
+        loggerInstance.info('Terminal socket handlers initialized');
       } else {
         loggerInstance.warn(
-          "Terminal socket initialization function not found",
+          'Terminal socket initialization skipped - Socket.IO not available or initialization function not found',
         );
       }
     } catch (error) {
@@ -274,12 +294,12 @@ async function startServer() {
   }
 
   if (BraveModule?.default) {
-    loggerInstance.info("Initializing Brave module");
+    loggerInstance.info('Initializing Brave module');
     BraveModule.default.init(app, io);
   }
 
   if (ResearchAPI?.initResearchModule) {
-    loggerInstance.info("Initializing Research module");
+    loggerInstance.info('Initializing Research module');
     try {
       await ResearchAPI.initResearchModule(
         app,
@@ -293,25 +313,25 @@ async function startServer() {
         {
           resolve: (name) => {
             // Simple DI container
-            if (name === "logger") return loggerInstance;
+            if (name === 'logger') return loggerInstance;
             return null;
           },
           bindSingleton: () => {},
         },
       );
     } catch (err) {
-      loggerInstance.error("Failed to initialize Research module:", err);
+      loggerInstance.error('Failed to initialize Research module:', err);
     }
   }
 
   if (MemorySystem) {
-    loggerInstance.info("Initializing Memory System");
+    loggerInstance.info('Initializing Memory System');
     const memoryInit = MemorySystem.default?.init || MemorySystem.init;
 
     // Define the getCoreMemoryAi function
     const getCoreMemoryAi = (opts = {}) => {
       return {
-        model_id: opts.model_id || "mem_short_terminator_9000",
+        model_id: opts.model_id || 'mem_short_terminator_9000',
         parameters: {
           temperature: Number(process.env.MEM_TEMP) || 0.7,
           max_tokens: Number(process.env.SHORT_TERM_TOKENS) || Math.floor(266),
@@ -320,15 +340,15 @@ async function startServer() {
       };
     };
 
-    if (typeof memoryInit === "function") {
+    if (typeof memoryInit === 'function') {
       memoryInit({
         layers: [
           {
-            key: "shortTerm",
+            key: 'shortTerm',
             maxSize: (2 * 5) ** 2,
             iOptionsResolver: {
-              ["ai-settings"]: getCoreMemoryAi({
-                model_id: "mem_short_terminator_9000",
+              ['ai-settings']: getCoreMemoryAi({
+                model_id: 'mem_short_terminator_9000',
                 parameters: {
                   temperature: Number(process.env.MEM_TEMP) || 0.7,
                   max_tokens:
@@ -340,17 +360,17 @@ async function startServer() {
         ],
         maintenance: Object.assign(
           {
-            autoConsolidate: process.env.AUTO_CONSOLIDATE === "true",
+            autoConsolidate: process.env.AUTO_CONSOLIDATE === 'true',
             consolidationThreshold: Number(
               process.env.CONSOLIDATION_THRESHOLD || 0.8,
             ),
           },
-          typeof window !== "object"
+          typeof window !== 'object'
             ? {
-                databaseSyncInterval: Number(
-                  process.env.MEM_DB_SYNC_INTERVAL || 3e5,
-                ),
-              }
+              databaseSyncInterval: Number(
+                process.env.MEM_DB_SYNC_INTERVAL || 3e5,
+              ),
+            }
             : {},
         ),
       });
@@ -358,7 +378,7 @@ async function startServer() {
   }
 
   if (Scheduler?.default) {
-    loggerInstance.info("Initializing Scheduler");
+    loggerInstance.info('Initializing Scheduler');
     const schedulerInstance = Scheduler.default.getSchedulerInstance();
     if (schedulerInstance && schedulerInstance.initialize) {
       schedulerInstance.initialize();
@@ -368,10 +388,10 @@ async function startServer() {
         schedulerInstance.start({
           cronJobs: [
             {
-              "* * * *": () => loggerInstance.info("Heartbeat"),
-              priority: "critical",
+              '* * * *': () => loggerInstance.info('Heartbeat'),
+              priority: 'critical',
             },
-            ...(process?.env.EXTRA_CRONS?.split(",").map((c) => c.trim()) ??
+            ...(process?.env.EXTRA_CRONS?.split(',').map((c) => c.trim()) ??
               []),
           ],
           concurrencyLimit: Number(process?.env.MAX_CONCURRENT_JOBS || 5),
@@ -384,13 +404,13 @@ async function startServer() {
   }
 
   // Set up basic error handler
-  app.use((err, req, res, next) => {
-    loggerInstance.error("Unhandled error:", err);
+  app.use((err, req, res, _next) => {
+    loggerInstance.error('Unhandled error:', err);
     res.status(500).json({
       success: false,
       error:
-        process.env.NODE_ENV === "production"
-          ? "Internal server error"
+        process.env.NODE_ENV === 'production'
+          ? 'Internal server error'
           : err.message,
     });
   });
@@ -402,20 +422,27 @@ async function startServer() {
       loggerInstance.info(
         `\x1b[36mCOREAI v${getVersion()} operational\x1b[0m`,
         `[PID:${process.pid}]`,
-        `[NODE_ENV:${process.env.NODE_ENV || "development"}]`,
+        `[NODE_ENV:${process.env.NODE_ENV || 'development'}]`,
         `[PORT:${port}]`,
-        `[MEM-LAYERS:${MemorySystem?.layers ? Object.keys(MemorySystem.layers).join(",") : "none"}]`,
+        `[MEM-LAYERS:${MemorySystem?.layers ? Object.keys(MemorySystem.layers).join(',') : 'none'}]`,
       );
     });
 
     // Simple performance monitoring
     setImmediate(() => {
-      loggerInstance.info("Performance monitoring started");
+      loggerInstance.info('Performance monitoring started');
       const memUsage = process.memoryUsage();
       loggerInstance.debug(
         `Memory usage: RSS=${Math.round(memUsage.rss / 1024 / 1024)}MB, Heap=${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
       );
     });
+
+    setInterval(() => {
+      const memUsage = process.memoryUsage();
+      loggerInstance.debug(
+        `Memory usage: RSS=${Math.round(memUsage.rss / 1024 / 1024)}MB, Heap=${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+      );
+    }, 60000); // Log every 60 seconds
   } catch (startErr) {
     loggerInstance.fatal(startErr.stack || startErr.message);
     // Use setTimeout to allow logging to complete before exiting
@@ -425,10 +452,10 @@ async function startServer() {
 
 // Bootstrap the application
 startServer().catch((err) => {
-  if (err.code === "MODULE_NOT_FOUND") {
-    console.error("MISSING DEPENDENCY:", err.message.split("\n")[0]);
+  if (err.code === 'MODULE_NOT_FOUND') {
+    console.error('MISSING DEPENDENCY:', err.message.split('\n')[0]);
   } else {
-    console.error("FATAL STARTUP ERROR:", err);
+    console.error('FATAL STARTUP ERROR:', err);
   }
   // Use process.exit instead of setting exitCode
   setTimeout(() => process.exit(err.status ?? 2), 100);

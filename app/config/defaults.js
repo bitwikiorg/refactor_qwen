@@ -3,12 +3,12 @@ export const SystemDefaults = {
   memory: {
     layers: [
       {
-        key: "shortTerm",
-        name: "shortTerm",
+        key: 'shortTerm',
+        name: 'shortTerm',
         maxSize: 50,
         iOptionsResolver: {
-          ["ai-settings"]: {
-            model_id: "mem_short_terminator_9000",
+          ['ai-settings']: {
+            model_id: 'mem_short_terminator_9000',
             parameters: {
               temperature: 0.7,
               max_tokens: 266,

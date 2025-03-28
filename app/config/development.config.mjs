@@ -1,13 +1,12 @@
-
 // app/config/development.config.mjs
 export const developmentConfig = {
   debug: process.env.DEBUG_MODE !== undefined ? process.env.DEBUG_MODE : true,
 
   logging: {
     level:
-      process.env.LOGGING_LEVEL && ["silly", "debug", "info"].includes(process.env.LOGGING_LEVEL)
+      process.env.LOGGING_LEVEL && ['silly', 'debug', 'info'].includes(process.env.LOGGING_LEVEL)
         ? process.env.LOGGING_LEVEL
-        : "verbose",
+        : 'verbose',
     console:
       typeof process.env.LOG_CONSOLE === 'string'
         ? JSON.parse(process.env.LOG_CONSOLE.toLowerCase())

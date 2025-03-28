@@ -1,9 +1,3 @@
-// File Path:
-// app/
-// └───config/
-//     └───loaders/
-//         └───chat-config.loader.mjs
-
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import AjvCore from 'ajv';
@@ -11,31 +5,27 @@ import AjvCore from 'ajv';
 const ajv = new AjvCore({ allErrors: true });
 
 /**
- * Interface for Chat Configuration
+ * @typedef {Object} ChatConfig
+ * @property {Object<string, string>} [sanitizeOptions]
+ * @property {{ windowMs: number, maxRequestsPerWindow?: number, delayAfter?: number }} [rateLimit]
  */
-export interface ChatConfig {
-  sanitizeOptions?: Record<string, string>;
-  rateLimit?: {
-    windowMs: number;
-    maxRequestsPerWindow?: number;
-    delayAfter?: number;
-  };
-}
 
 /**
- * Interface for Validation Result
+ * @typedef {Object} ValidationResult
+ * @property {boolean} isValid
+ * @property {string[]} [errors]
+ * @property {ChatConfig|null} [data]
  */
-interface ValidationResult<T> {
-  isValid: boolean;
-  errors?: string[];
-  data?: T | null;
-}
 
 /**
  * Custom error class for configuration validation errors
  */
 class ConfigValidationError extends Error {
-  constructor(message: string, errors: string[] = []) {
+  /**
+   * @param {string} message
+   * @param {string[]} [errors=[]]
+   */
+  constructor(message, errors = []) {
     super(message);
     this.name = 'ConfigValidationError';
     this.errors = errors;
@@ -43,22 +33,35 @@ class ConfigValidationError extends Error {
 }
 
 /**
- * Validate and normalize chat configuration
- * @param {any} data - Raw chat configuration data
- * @returns {ValidationResult<ChatConfig>} - Validation result
+ * Load and parse JSON schema from a file
+ * @param {string} schemaPath - Path to the schema file
+ * @returns {Promise<Object>} - Parsed schema object
+ * @throws {Error} - If the schema file cannot be read or parsed
  */
-async function _validateAndNormalize(data: any): Promise<ValidationResult<ChatConfig>> {
-  // Load schema file
+async function _loadSchema(schemaPath) {
+  try {
+    const schemaContent = await fs.readFile(schemaPath, { encoding: 'utf8' });
+    return JSON.parse(schemaContent);
+  } catch (err) {
+    throw new Error(`Failed to load schema (${schemaPath}): ${err.message}`);
+  }
+}
+
+/**
+ * Validate and normalize chat configuration
+ * @param {*} data - Raw chat configuration data
+ * @returns {Promise<ValidationResult>} - Validation result
+ */
+async function _validateAndNormalize(data) {
   const schemaPath = path.join(__dirname, '../', 'schema', 'chat-schema.schema.json');
-  let schemaContent: string;
+  let schema;
 
   try {
-    schemaContent = await fs.readFile(schemaPath, { encoding: 'utf8' });
+    schema = await _loadSchema(schemaPath);
   } catch (err) {
-    return { isValid: false, errors: [`Failed to read schema file (${schemaPath}): ${err}`] };
+    return { isValid: false, errors: [err.message] };
   }
 
-  const schema = JSON.parse(schemaContent);
   const validate = ajv.compile(schema);
 
   // Validate data
@@ -76,24 +79,23 @@ async function _validateAndNormalize(data: any): Promise<ValidationResult<ChatCo
  * Load and validate chat settings
  * @returns {Promise<ChatConfig>} - Validated chat configuration
  */
-export async function loadValidatedChatSettings(): Promise<ChatConfig> {
-  // 🛠️ STEP #1 - Resolve Configuration Paths
+export async function loadValidatedChatSettings() {
+  // Resolve Configuration Paths
   const rootDir = process.env.NODE_ENV === 'production'
     ? __dirname.split('/app')[0]
     : __dirname.replace('/app/config/loaders', '');
 
   const mainConfigPath = path.join(rootDir, 'config', 'default.conf');
-  const schemaPath = path.join(rootDir, 'schema', 'chat-schema.schema.json');
 
   try {
-    // 📄 STEP #2 - Load Base Configuration
+    // Load Base Configuration
     const rawConfigStr = await fs.readFile(mainConfigPath, { encoding: 'utf8' });
     const parsedMainConf = JSON.parse(rawConfigStr);
 
-    // 🔍 STEP #3 - Extract Chat Settings Object
+    // Extract Chat Settings Object
     const candidateData = parsedMainConf.ai_providers?.venice?.models?.chat?.parameters || {};
 
-    // 📝 STEP #4 - Validate Against Schema
+    // Validate Against Schema
     const validationResult = await _validateAndNormalize(candidateData);
 
     if (!validationResult.isValid) {

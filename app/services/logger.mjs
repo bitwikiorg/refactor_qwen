@@ -1,4 +1,3 @@
-
 /**
  * Logger module - Production-ready logging utilities
  */
@@ -28,11 +27,11 @@ class ProductionReadyLogger {
 
     validatedOptions.module =
       options.module && typeof options.module !== 'string'
-        ? "[UNNAMED_LOGGER_INSTANCE]"
-        : options.module || "[DEFAULT_MODULE]";
+        ? '[UNNAMED_LOGGER_INSTANCE]'
+        : options.module || '[DEFAULT_MODULE]';
 
     validatedOptions.level =
-      validLevels.includes(options?.level || "")
+      validLevels.includes(options?.level || '')
         ? options.level
         : validLevels[0];
 
@@ -135,7 +134,7 @@ class ProductionReadyLogger {
     try {
       currentLevelValue = LOG_LEVELS[levelStringArg];
     } catch (e) {
-      console.error("Unknown log level:", levelStringArg);
+      console.error('Unknown log level:', levelStringArg);
       return;
     }
 
@@ -196,8 +195,8 @@ export function getLoggerInstance(options = {}) {
   try {
     // Set default values to ensure required fields are present
     const defaultConfig = {
-      module: "[DEFAULT_MODULE]",
-      currentLogLevel: "info"
+      module: '[DEFAULT_MODULE]',
+      currentLogLevel: 'info'
     };
     
     // Merge defaults with provided options
@@ -214,11 +213,11 @@ export function getLoggerInstance(options = {}) {
 
     return instance;
   } catch (err) {
-    console.error("Logger initialization error:", err.message);
+    console.error('Logger initialization error:', err.message);
     // Provide a fallback logger that won't throw errors but will log the issue
     const fallbackLogger = new ProductionReadyLogger({
-      module: "[FALLBACK_LOGGER]",
-      currentLogLevel: "info"
+      module: '[FALLBACK_LOGGER]',
+      currentLogLevel: 'info'
     });
     return fallbackLogger;
   }
@@ -226,8 +225,8 @@ export function getLoggerInstance(options = {}) {
 
 // Create default logger instance
 const defaultLogger = getLoggerInstance({ 
-  module: "App", 
-  currentLogLevel: process.env.LOG_LEVEL || "info" 
+  module: 'App', 
+  currentLogLevel: process.env.LOG_LEVEL || 'info' 
 });
 
 /**

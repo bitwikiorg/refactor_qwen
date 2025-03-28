@@ -50,7 +50,7 @@ class NeuroMemCache extends MemCacheLayer {
       this.size++;
       return true;
     } catch (err) {
-      console.error("Caching failed:", err.message, key?.toString?.());
+      console.error('Caching failed:', err.message, key?.toString?.());
       return false;
     }
   }

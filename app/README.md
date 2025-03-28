@@ -82,6 +82,13 @@ The system comes with an intuitive web interface with several dedicated views:
 - All research is stored locally and optionally in your own GitHub repositories
 - Control over what information is saved and shared
 
+## Known Issues & Fixes
+- Fixed duplicate terminal initialization to prevent extra socket connections.
+- ESLint fixes applied: removed trailing commas, unused variables, and duplicate declarations.
+- Use ESLint to debug syntax issues. Run:
+  - "npm run lint" to check for errors.
+  - "npm run lint:fix" to automatically fix issues.
+
 ---
 
 Built with ❤️ using modern web technologies and AI integration

@@ -1,4 +1,12 @@
-authRouter.post("/login", async (req, res) => {
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import User from '../../../models/User.js'; // Adjust the path as needed
+import authConfig from '../../../config/authConfig.js'; // Adjust the path as needed
+import logger from '../../../utils/logger.js'; // Adjust the path as needed
+
+const authRouter = express.Router();
+
+authRouter.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -7,31 +15,26 @@ authRouter.post("/login", async (req, res) => {
         .status(400)
         .json({
           success: false,
-          message: "Username and password are required",
+          message: 'Username and password are required',
         });
     }
-
-    // In production use proper authentication mechanism instead of accepting any username/password combination for demo purposes only!
 
     const userData = await User.findOne({ username });
 
     if (!userData || !(await userData.comparePassword(password))) {
       return res
         .status(401)
-        .json({ success: false, message: "Invalid credentials" });
+        .json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Generate JWT token containing user data with secret key & options specified earlier!
     const token = jwt.sign(
       {
         _id: userData._id,
         username: userData.username,
         permissions: userData.permissions,
       },
-
       authConfig.jwtSecret,
-
-      authConfig.jwtOptions,
+      authConfig.jwtOptions
     );
 
     logger.info(`User authenticated ${username}`);
@@ -40,13 +43,15 @@ authRouter.post("/login", async (req, res) => {
       success: true,
       token,
       user: {
-        _id: user._id,
-        username: user.username,
-        permissions: user.permissions,
+        _id: userData._id,
+        username: userData.username,
+        permissions: userData.permissions,
       },
     });
   } catch (error) {
     logger.error(error);
-    res.status(500).json({ message: "Internal Server Error" });
+    res.status(500).json({ message: 'Internal Server Error' });
   }
 });
+
+export default authRouter;

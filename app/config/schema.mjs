@@ -1,105 +1,104 @@
 // app/config/schema.mjs
 export const CONFIG_SCHEMA = {
-  "$schema": "http://json-schema.org/draft-2023-06/schema",
-  "$id": "/config/coreai-config",
-  "title": "CORE AI Configuration Schema",
-  "description": "Schema validating all configuration aspects including providers, memory systems & security settings",
+  '$schema': 'http://json-schema.org/draft-2023-06/schema',
+  '$id': '/config/coreai-config',
+  'title': 'CORE AI Configuration Schema',
+  'description': 'Schema validating all configuration aspects including providers, memory systems & security settings',
 
   // Top-Level Structure Validation
-  type: "object",
+  type: 'object',
 
   // Required Root Properties
   required: [
-    "appInfo",
-    "aiProviders",
-    "memorySystem",
-    "workflows"
+    'appInfo',
+    'aiProviders',
+    'memorySystem',
+    'workflows'
   ],
 
   properties: {
     // System Metadata Block
     appInfo: {
-      type: "object",
-      description: "Application metadata block",
+      type: 'object',
+      description: 'Application metadata block',
       properties: {
-        name: { type: "string" },
-        version: { type: "string" },
-        description: { type: "string" },
-        plugins: { type: "array", items: { type: "string" } },
+        name: { type: 'string' },
+        version: { type: 'string' },
+        description: { type: 'string' },
+        plugins: { type: 'array', items: { type: 'string' } },
       },
       additionalProperties: false,
-      required: ["name", "version", "description"]
+      required: ['name', 'version', 'description']
     },
 
     // AI Providers
     aiProviders: {
-      type: "object",
+      type: 'object',
 
       patternProperties: {
-        "^\\w+[-_]?\\w*$": {
-          type: "object",
+        '^\\w+[-_]?\\w*$': {
+          type: 'object',
           properties: {
-            useGlobalApiKey: { type: "boolean" },
-            globalApiKey: { oneOf: [{ const: null }, { type: "string" }] },
+            useGlobalApiKey: { type: 'boolean' },
+            globalApiKey: { oneOf: [{ const: null }, { type: 'string' }] },
 
             endpoints: {
-              type: "object",
+              type: 'object',
               additionalProperties: {
                 oneOf: [
-                  { format: "uri" },
+                  { format: 'uri' },
                   { const: null }
                 ]
               }
             },
 
             models: {
-              type: "object",
+              type: 'object',
               patternProperties: {
-                "^\\w+$": {
+                '^\\w+$': {
                   oneOf: [
-                    { "$ref": "#/$defs/modelConfig" }
+                    { '$ref': '#/$defs/modelConfig' }
                   ]
                 }
               }
             },
 
             customSettings: {
-              "$ref": "#/$defs/providerCustomSettings"
+              '$ref': '#/$defs/providerCustomSettings'
             }
           },
 
           additionalProperties: false,
-          required: ["useGlobalApiKey", "endpoints", "models"]
+          required: ['useGlobalApiKey', 'endpoints', 'models']
         }
       },
 
-      additionalProperties: false,
-      required: []
+      additionalProperties: false
     },
 
     // Memory System
     memorySystem: {
-      type: "object",
+      type: 'object',
       properties: {
         layers: {
-          type: "array",
+          type: 'array',
           items: {
-            type: "object",
-            required: ["name", "key", "maxSize", "aiSettings"],
+            type: 'object',
+            required: ['name', 'key', 'maxSize', 'aiSettings'],
 
             properties: {
-              name: { type: "string" },
-              key: { type: "string" },
-              maxSize: { type: "number" },
+              name: { type: 'string' },
+              key: { type: 'string' },
+              maxSize: { type: 'number' },
 
               aiSettings: {
-                type: "object",
-                required: ["modelId", "parameters"],
+                type: 'object',
+                required: ['modelId', 'parameters'],
 
                 properties: {
-                  modelId: { type: "string" },
-                  parameters: { type: "object" },
-                  description: { type: "string" }
+                  modelId: { type: 'string' },
+                  parameters: { type: 'object' },
+                  description: { type: 'string' }
                 },
 
                 additionalProperties: true
@@ -113,48 +112,45 @@ export const CONFIG_SCHEMA = {
         }
       },
 
-      additionalProperties: false,
-      required: ["layers"]
+      additionalProperties: false
     },
 
     // Workflow Requirements
     workflows: {
-      type: "object",
+      type: 'object',
       properties: {
         taskScheduler: {
-          type: "object",
+          type: 'object',
           properties: {
-            tasksDirectory: { type: "string" },
+            tasksDirectory: { type: 'string' },
             cronInterval: {
-              type: "string",
-              pattern: "^(\\*(/\\d+)?|\\d+|\\d+-\\d+|\\d+/\\d+)( (\\*(/\\d+)?|\\d+|\\d+-\\d+|\\d+/\\d+)){4}$"
+              type: 'string',
+              pattern: '^(\\*(/\\d+)?|\\d+|\\d+-\\d+|\\d+/\\d+)( (\\*(/\\d+)?|\\d+|\\d+-\\d+|\\d+/\\d+)){4}$'
             }
           },
-          required: ["tasksDirectory"],
+          required: ['tasksDirectory'],
           additionalProperties: false
         }
       },
-      additionalProperties: false,
-      required: ["taskScheduler"]
+      additionalProperties: false
     }
   },
 
   additionalProperties: false,
-  required: ["appInfo", "aiProviders", "memorySystem", "workflows"],
 
   $defs: {
     modelConfig: {
-      type: "object",
+      type: 'object',
       properties: {
-        parameters: { type: "object" },
-        temperature: { type: "number", minimum: 0, maximum: 1 }
+        parameters: { type: 'object' },
+        temperature: { type: 'number', minimum: 0, maximum: 1 }
       },
       additionalProperties: true,
-      required: ["parameters"]
+      required: ['parameters']
     },
 
     providerCustomSettings: {
-      type: "object",
+      type: 'object',
       additionalProperties: true
     }
   }

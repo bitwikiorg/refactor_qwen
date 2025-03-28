@@ -1,12 +1,11 @@
-
-import { Octokit } from "@octokit/rest";
-import { getLoggerInstance } from "./logger.mjs";
-import { getConfig } from "../config/provider.mjs";
+import { Octokit } from '@octokit/rest';
+import { getLoggerInstance } from './logger.mjs';
+import { getConfig } from '../config/provider.mjs';
 
 export class GitSyncError extends Error {
   constructor(message) {
     super(message);
-    this.name = "GitSyncError";
+    this.name = 'GitSyncError';
   }
 }
 
@@ -34,15 +33,15 @@ export default class AuthenticatedGitAdapter {
       this.loggerRef = getLoggerInstance({ module: 'GitSync' });
 
       // Validate GitHub config first
-      const githubConfig = this.config.get("integrations.github");
+      const githubConfig = this.config.get('integrations.github');
       if (!githubConfig.enabled || !githubConfig.token)
-        throw new Error("GitHub Integration Not Configured");
+        throw new Error('GitHub Integration Not Configured');
 
       this._setupOctokit(githubConfig); // Setup client first
 
-      await this.validateAuth();        // Check connection
+      await this.validateAuth(); // Check connection
 
-      __gitSingleton__ ||= this;        // Assign singleton only after success
+      __gitSingleton__ ||= this; // Assign singleton only after success
 
       return __gitSingleton__;
     } catch (err) {
@@ -53,8 +52,8 @@ export default class AuthenticatedGitAdapter {
   _setupOctokit(configData) {
     this.octoClient = new Octokit({
       auth: configData.token,
-      userAgent: "COREAI-Memory-Sync/v2",
-      baseUrl: configData.base_url || "https://api.github.com"
+      userAgent: 'COREAI-Memory-Sync/v2',
+      baseUrl: configData.base_url || 'https://api.github.com'
     });
 
     this.configRef = configData;
@@ -62,29 +61,24 @@ export default class AuthenticatedGitAdapter {
 
   // Validate authentication by testing repo access
   async validateAuth() {
-    try {
-      const repoDetails = {
-        owner: this.configRef.repo_config.owner,
-        repo: this.configRef.repo_config.repo
-      };
-
-      const res = await this.octoClient.repos.get(repoDetails);
-      return res.data.full_name;
-    } catch (e) {
-      throw e;
-    }
+    const repoDetails = {
+      owner: this.configRef.repo_config.owner,
+      repo: this.configRef.repo_config.repo
+    };
+    const res = await this.octoClient.repos.get(repoDetails);
+    return res.data.full_name;
   }
 
   // Push changes with safety checks
-  pushChange({ path = "memory/", content = "", message = "Auto sync" }) {
-    return new Promise(async (resolve, reject) => {
-      try {
+  pushChange({ path = 'memory/', content = '', message = 'Auto sync' }) {
+    return new Promise((resolve, reject) => {
+      (async () => {
         path = normalizePath(path);
-        content ??= "";
-        message ??= "Auto sync commit";
+        content ??= '';
+        message ??= 'Auto sync commit';
 
         // Resolve branch name safely:
-        const branch = this.configRef?.repo_config?.branch || "main";
+        const branch = this.configRef?.repo_config?.branch || 'main';
 
         // Atomic operation sequence:
         const blobSha = await this.createFileBlob(content);
@@ -94,9 +88,9 @@ export default class AuthenticatedGitAdapter {
         await this.updateBranchPointer(newCommitObj.sha, branch);
 
         resolve(true);
-      } catch (error) {
+      })().catch((error) => {
         reject(new GitSyncError(`Push failed (${error.message})`));
-      }
+      });
     });
   }
 
@@ -115,13 +109,13 @@ export default class AuthenticatedGitAdapter {
   }
 
   async createFileBlob(contentStr) {
-    contentStr ??= "\n";
+    contentStr ??= '\n';
     try {
       const resp = await this.octoClient.git.createBlob({
         owner: this.configRef.repo_config.owner,
         repo: this.configRef.repo_config.repo,
         content: Buffer.from(contentStr).toString('base64'),
-        encoding: "base64"
+        encoding: 'base64'
       });
       return resp.data.sha;
     } catch (error) {
@@ -179,12 +173,12 @@ export default class AuthenticatedGitAdapter {
         sha: commitSHA,
         force: true
       });
-      
+
       if (response.data.object.sha === commitSHA) {
         this.loggerRef.info(`Updated ${branchName} branch successfully`);
         return true;
       } else {
-        throw new GitSyncError(`Failed to update branch: SHA mismatch`);
+        throw new GitSyncError('Failed to update branch: SHA mismatch');
       }
     } catch (error) {
       throw new GitSyncError(`Failed to update branch pointer: ${error.message}`);

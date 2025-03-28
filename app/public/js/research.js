@@ -48,7 +48,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
   if (rerunResearchBtn) {
     rerunResearchBtn.addEventListener('click', function() {
-      const researchId = rerunResearchBtn.getAttribute('data-id');
       const query = rerunResearchBtn.getAttribute('data-query');
       const depth = parseInt(rerunResearchBtn.getAttribute('data-depth') || '3', 10);
       const breadth = parseInt(rerunResearchBtn.getAttribute('data-breadth') || '5', 10);

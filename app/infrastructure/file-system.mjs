@@ -101,23 +101,17 @@ class FileSystemService {
     const { recursive = false, filter = null } = options;
 
     try {
-      // Read directory entries
-      const entries = await fs.promises.readdir(dirPath);
+      const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
       let files = [];
 
-      // Process each entry
       for (const entry of entries) {
-        const entryPath = path.join(dirPath, entry);
-        const stats = await fs.promises.stat(entryPath);
+        const entryPath = path.join(dirPath, entry.name);
 
-        // If it's a file, add it to the list if it passes the filter
-        if (stats.isFile()) {
-          if (!filter || filter.test(entry)) {
+        if (entry.isFile()) {
+          if (!filter || filter.test(entry.name)) {
             files.push(entryPath);
           }
-        }
-        // If it's a directory and recursive is true, get its files too
-        else if (stats.isDirectory() && recursive) {
+        } else if (entry.isDirectory() && recursive) {
           const subFiles = await this.listFiles(entryPath, options);
           files = files.concat(subFiles);
         }
@@ -125,7 +119,7 @@ class FileSystemService {
 
       return files;
     } catch (error) {
-      throw new Error(`Failed to list files in "${dirPath}": ${error.message});
+      throw new Error(`Failed to list files in "${dirPath}": ${error.message}`);
     }
   }
 
@@ -139,7 +133,7 @@ class FileSystemService {
       const data = await this.readFile(filePath);
       return JSON.parse(data);
     } catch (error) {
-      throw new Error(`Failed to read JSON file "${filePath}": ${error.message});
+      throw new Error(`Failed to read JSON file "${filePath}": ${error.message}`);
     }
   }
 
@@ -157,7 +151,7 @@ class FileSystemService {
         : JSON.stringify(data);
       await this.writeFile(filePath, jsonData);
     } catch (error) {
-      throw new Error(`Failed to write JSON file "${filePath}": ${error.message});
+      throw new Error(`Failed to write JSON file "${filePath}": ${error.message}`);
     }
   }
 }

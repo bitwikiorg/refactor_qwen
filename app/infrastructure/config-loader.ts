@@ -1,4 +1,3 @@
-
 import { SystemDefaults } from '../config/defaults.js';
 import { mergeDeep } from '../utils/object-utils.js';
 import { assert } from '../utils/assertions.js';
@@ -50,29 +49,15 @@ class ConfigLoader implements IConfigurationSource {
   }
 
   protected async load(override: boolean = false): Promise<void> {
-    const mergedResult = await Promise.resolve(
-      mergeDeep(
-        this._defaults || {},
-        override ? {} : this._rawData.memory ?? {}
-      )
+    const mergedResult = mergeDeep(
+      this._defaults,
+      override ? this._rawData : this._rawData
     );
 
     Object.freeze(mergedResult); /* Immutable post-load */
 
-    Object.defineProperties(this, {
-      '_merged': {
-        value: mergedResult,
-        writable: false,
-        enumerable: false,
-        configurable: false
-      },
-      '__initialized': {
-        value: true,
-        writable: false,
-        enumerable: false,
-        configurable: false
-      }
-    });
+    this._merged = mergedResult as { memory: { layers: Layer[] } };
+    this.__initialized = true;
   }
 
   protected async validate(): Promise<void> {
@@ -123,4 +108,6 @@ class ConfigLoader implements IConfigurationSource {
   }
 }
 
-export { ConfigLoader, IConfigurationSource, Layer, RawConfigurationInput };
+// Use `export type` for type re-exports to comply with `isolatedModules`
+export type { IConfigurationSource, Layer, RawConfigurationInput };
+export { ConfigLoader };

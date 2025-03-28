@@ -15,4 +15,3 @@ describe('FileSystemService', () => {
     expect(content).toBe('Test content');
   });
 });
-});

@@ -1,508 +1,504 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize Socket.IO connection.  Assuming SocketClient is defined elsewhere and handles duplicate declarations
-    const socket = window.SocketClient.initialize('/terminal');
-    window.terminalSocket = socket;
+  // Prevent duplicate initialization (first instance)
+  if (window.terminalInitialized) return;
+  window.terminalInitialized = true;
 
-    // Handle socket connection status
-    document.addEventListener('socket:connected', () => {
-        addSystemMessage('[SYSTEM] Connected to server successfully.');
+  // Initialize Socket.IO connection.  Assuming SocketClient is defined elsewhere and handles duplicate declarations
+  const socket = window.SocketClient.initialize('/terminal');
+  window.terminalSocket = socket;
+
+  // Handle socket connection status
+  document.addEventListener('socket:connected', () => {
+    addSystemMessage('[SYSTEM] Connected to server successfully.');
+  });
+
+  document.addEventListener('socket:error', () => {
+    addErrorMessage('[ERROR] Failed to establish connection. Terminal operating in offline mode.');
+    addSystemMessage('[SYSTEM] Try using basic commands: help, clear, status');
+  });
+
+  document.addEventListener('socket:disconnected', () => {
+    addErrorMessage('[ERROR] Connection lost. Terminal operating in offline mode.');
+    addSystemMessage('[SYSTEM] Try using basic commands: help, clear, status');
+  });
+
+
+  const outputElement = document.getElementById('output');
+  const commandInput = document.getElementById('command-input');
+  const progressFill = document.getElementById('progress-fill');
+  const progressText = document.getElementById('progress-text');
+  const toggleSidebarBtn = document.getElementById('toggle-sidebar');
+  const closeSidebarBtn = document.getElementById('close-sidebar');
+  const sidebar = document.querySelector('.sidebar');
+
+  // Terminal variables
+  const commandHistory = [];
+  let historyPos = -1;
+  let activeResearch = null;
+  let depth = 3;
+  let breadth = 5;
+  let aiChatMode = false;
+  window.chatHistory = [];
+
+  function focusInput() {
+    commandInput.focus();
+  }
+  focusInput();
+  document.addEventListener('click', focusInput);
+
+  // Toggle sidebar
+  if (toggleSidebarBtn) {
+    toggleSidebarBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('hidden');
     });
+  }
 
-    document.addEventListener('socket:error', () => {
-        addErrorMessage('[ERROR] Failed to establish connection. Terminal operating in offline mode.');
-        addSystemMessage('[SYSTEM] Try using basic commands: help, clear, status');
+  if (closeSidebarBtn) {
+    closeSidebarBtn.addEventListener('click', () => {
+      sidebar.classList.add('hidden');
     });
+  }
 
-    document.addEventListener('socket:disconnected', () => {
-        addErrorMessage('[ERROR] Connection lost. Terminal operating in offline mode.');
-        addSystemMessage('[SYSTEM] Try using basic commands: help, clear, status');
-    });
-
-
-    const outputElement = document.getElementById('output');
-    const commandInput = document.getElementById('command-input');
-    const progressFill = document.getElementById('progress-fill');
-    const progressText = document.getElementById('progress-text');
-    const toggleSidebarBtn = document.getElementById('toggle-sidebar');
-    const closeSidebarBtn = document.getElementById('close-sidebar');
-    const sidebar = document.querySelector('.sidebar');
-
-    // Terminal variables
-    const commandHistory = [];
-    let historyPos = -1;
-    let activeResearch = null;
-    let depth = 3;
-    let breadth = 5;
-    let isResearchInProgress = false;
-    let aiChatMode = false;
-    window.chatHistory = [];
-
-    function focusInput() {
-        commandInput.focus();
-    }
-    focusInput();
-    document.addEventListener('click', focusInput);
-
-    // Toggle sidebar
-    if (toggleSidebarBtn) {
-        toggleSidebarBtn.addEventListener('click', () => {
-            sidebar.classList.toggle('hidden');
-        });
-    }
-
-    if (closeSidebarBtn) {
-        closeSidebarBtn.addEventListener('click', () => {
-            sidebar.classList.add('hidden');
-        });
-    }
-
-    if (sidebar) {
-        document.addEventListener('click', (event) => {
-            if (
-                !sidebar.contains(event.target) &&
+  if (sidebar) {
+    document.addEventListener('click', (event) => {
+      if (
+        !sidebar.contains(event.target) &&
                 toggleSidebarBtn && !toggleSidebarBtn.contains(event.target) &&
                 !sidebar.classList.contains('hidden')
-            ) {
-                sidebar.classList.add('hidden');
-            }
-        });
-    }
+      ) {
+        sidebar.classList.add('hidden');
+      }
+    });
+  }
 
-    /**
+  /**
      * appendOutput - the main function to display lines in the terminal.
      * @param {string} text - The text to display (e.g., "[USER] Hello")
      * @param {string} type - The message type (system, user, ai, error, analysis, etc.)
      */
-    function appendOutput(text, type = 'system') {
-        const line = document.createElement('p');
-        line.textContent = text;
-        line.classList.add(`${type}-message`);
+  function appendOutput(text, type = 'system') {
+    const line = document.createElement('p');
+    line.textContent = text;
+    line.classList.add(`${type}-message`);
 
-        // Make text selectable
-        line.style.userSelect = 'text';
+    // Make text selectable
+    line.style.userSelect = 'text';
 
-        outputElement.appendChild(line);
-        outputElement.scrollTop = outputElement.scrollHeight;
-        console.log(`Terminal message [${type}]:`, text);
+    outputElement.appendChild(line);
+    outputElement.scrollTop = outputElement.scrollHeight;
+    console.log(`Terminal message [${type}]:`, text);
+  }
+
+  function appendHTML(html) {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+
+    // Make text selectable
+    div.style.userSelect = 'text';
+
+    outputElement.appendChild(div);
+    outputElement.scrollTop = outputElement.scrollHeight;
+  }
+
+  function updateProgress(percent, message) {
+    if (progressFill && progressText) {
+      progressFill.style.width = `${percent}%`;
+      progressText.textContent = message || `${percent}%`;
+    }
+  }
+
+  function showProgress() {
+    if (progressFill && progressText) {
+      progressFill.style.width = '100%';
+      progressText.textContent = 'Working...';
+    }
+  }
+
+  function hideProgress() {
+    if (progressFill && progressText) {
+      progressFill.style.width = '0';
+      progressText.textContent = 'Ready';
+    }
+  }
+
+  // Show system line
+  function writeSystem(msg) {
+    appendOutput(`[SYSTEM] ${msg}`, 'system');
+  }
+
+  // Show user line
+  function writeUser(msg) {
+    appendOutput(`[USER] ${msg}`, 'user');
+  }
+
+  // Show AI line
+  function writeAI(msg) {
+    appendOutput(`[AI] ${msg}`, 'ai');
+  }
+
+  // Show error line
+  function writeError(msg) {
+    appendOutput(`[ERROR] ${msg}`, 'error');
+  }
+
+  // Show analysis line
+  function writeAnalysis(msg) {
+    appendOutput(`[ANALYSIS] ${msg}`, 'analysis');
+  }
+
+  // Show research line
+  function writeResearch(msg) {
+    appendOutput(`[RESEARCH] ${msg}`, 'research');
+  }
+
+  // Clear terminal but keep ASCII logo
+  function clearTerminal() {
+    const logo = outputElement.querySelector('.ascii-logo');
+    const deepResearch = outputElement.querySelector('.deep-research');
+    outputElement.innerHTML = '';
+    if (logo) outputElement.appendChild(logo);
+    if (deepResearch) outputElement.appendChild(deepResearch);
+    writeSystem('Terminal cleared');
+  }
+
+  // Show help popup
+  function showHelp() {
+    const helpPopup = document.getElementById('help-popup');
+    helpPopup.style.display = 'block';
+
+    // Add system message without changing terminal content
+    appendOutput(`[SYSTEM] Help menu opened. Click × to close or type any command.`, 'system');
+  }
+
+  // Initialize help button and close button
+  document.addEventListener('DOMContentLoaded', () => {
+    const helpBtn = document.getElementById('help-btn');
+    const helpPopup = document.getElementById('help-popup');
+    const closeHelp = document.getElementById('close-help');
+
+    if (helpBtn) {
+      helpBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showHelp();
+      });
     }
 
-    function appendHTML(html) {
-        const div = document.createElement('div');
-        div.innerHTML = html;
-
-        // Make text selectable
-        div.style.userSelect = 'text';
-
-        outputElement.appendChild(div);
-        outputElement.scrollTop = outputElement.scrollHeight;
+    if (closeHelp) {
+      closeHelp.addEventListener('click', () => {
+        helpPopup.style.display = 'none';
+      });
     }
 
-    function updateProgress(percent, message) {
-        if (progressFill && progressText) {
-            progressFill.style.width = `${percent}%`;
-            progressText.textContent = message || `${percent}%`;
-        }
-    }
-
-    function showProgress() {
-        if (progressFill && progressText) {
-            progressFill.style.width = '100%';
-            progressText.textContent = 'Working...';
-        }
-    }
-
-    function hideProgress() {
-        if (progressFill && progressText) {
-            progressFill.style.width = '0';
-            progressText.textContent = 'Ready';
-        }
-    }
-
-    // Show system line
-    function writeSystem(msg) {
-        appendOutput(`[SYSTEM] ${msg}`, 'system');
-    }
-
-    // Show user line
-    function writeUser(msg) {
-        appendOutput(`[USER] ${msg}`, 'user');
-    }
-
-    // Show AI line
-    function writeAI(msg) {
-        appendOutput(`[AI] ${msg}`, 'ai');
-    }
-
-    // Show error line
-    function writeError(msg) {
-        appendOutput(`[ERROR] ${msg}`, 'error');
-    }
-
-    // Show analysis line
-    function writeAnalysis(msg) {
-        appendOutput(`[ANALYSIS] ${msg}`, 'analysis');
-    }
-
-    // Show research line
-    function writeResearch(msg) {
-        appendOutput(`[RESEARCH] ${msg}`, 'research');
-    }
-
-    // Show warning line
-    function writeWarning(msg) {
-        appendOutput(`[WARNING] ${msg}`, 'warning');
-    }
-
-    // Clear terminal but keep ASCII logo
-    function clearTerminal() {
-        const logo = outputElement.querySelector('.ascii-logo');
-        const deepResearch = outputElement.querySelector('.deep-research');
-        outputElement.innerHTML = '';
-        if (logo) outputElement.appendChild(logo);
-        if (deepResearch) outputElement.appendChild(deepResearch);
-        writeSystem("Terminal cleared");
-    }
-
-    // Show help popup
-    function showHelp() {
-        const helpPopup = document.getElementById('help-popup');
-        helpPopup.style.display = 'block';
-
-        // Add system message without changing terminal content
-        appendOutput(`[SYSTEM] Help menu opened. Click × to close or type any command.`, 'system');
-    }
-
-    // Initialize help button and close button
-    document.addEventListener('DOMContentLoaded', () => {
-        const helpBtn = document.getElementById('help-btn');
-        const helpPopup = document.getElementById('help-popup');
-        const closeHelp = document.getElementById('close-help');
-
-        if (helpBtn) {
-            helpBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                showHelp();
-            });
-        }
-
-        if (closeHelp) {
-            closeHelp.addEventListener('click', () => {
-                helpPopup.style.display = 'none';
-            });
-        }
-
-        // Close help popup when clicking elsewhere
-        document.addEventListener('click', (e) => {
-            if (helpPopup.style.display === 'block' &&
+    // Close help popup when clicking elsewhere
+    document.addEventListener('click', (e) => {
+      if (helpPopup.style.display === 'block' &&
                 !helpPopup.contains(e.target) &&
                 e.target.id !== 'help-btn') {
-                helpPopup.style.display = 'none';
-            }
-        });
+        helpPopup.style.display = 'none';
+      }
     });
+  });
 
 
-    // Check system status
-    function checkStatus() {
-        writeSystem("Checking system status...");
-        if (socket && socket.connected) {
-            socket.emit('get-system-stats');
-            socket.emit('check-api-status');
-        } else {
-            writeError("Cannot check status. Socket connection not available.");
-            writeSystem("Running in offline mode. Full functionality not available.");
-        }
+  // Check system status
+  function checkStatus() {
+    writeSystem('Checking system status...');
+    if (socket && socket.connected) {
+      socket.emit('get-system-stats');
+      socket.emit('check-api-status');
+    } else {
+      writeError('Cannot check status. Socket connection not available.');
+      writeSystem('Running in offline mode. Full functionality not available.');
     }
+  }
 
-    // Show models
-    function showModels() {
-        writeSystem("Fetching available models from Venice API...");
-        if (socket && socket.connected) {
-            showProgress();
-            socket.emit('fetch-venice-models');
-        } else {
-            writeError("Cannot fetch models. Socket connection not available.");
-            writeSystem("Running in offline mode. Full functionality not available.");
-        }
+  // Show models
+  function showModels() {
+    writeSystem('Fetching available models from Venice API...');
+    if (socket && socket.connected) {
+      showProgress();
+      socket.emit('fetch-venice-models');
+    } else {
+      writeError('Cannot fetch models. Socket connection not available.');
+      writeSystem('Running in offline mode. Full functionality not available.');
     }
+  }
 
-    // Start research
-    function startResearch(query) {
-        writeSystem(`Starting research for: "${query}"`);
-        writeSystem(`Depth: ${depth}, Breadth: ${breadth}`);
+  // Start research
+  function startResearch(query) {
+    writeSystem(`Starting research for: "${query}"`);
+    writeSystem(`Depth: ${depth}, Breadth: ${breadth}`);
 
-        updateProgress(5, 'Initializing research...');
-        writeResearch(`Starting research on: "${query}" (depth: ${depth}, breadth: ${breadth})`);
-        writeResearch("Initializing research paths...");
+    updateProgress(5, 'Initializing research...');
+    writeResearch(`Starting research on: "${query}" (depth: ${depth}, breadth: ${breadth})`);
+    writeResearch('Initializing research paths...');
 
-        activeResearch = { id: null, query, depth, breadth };
-        isResearchInProgress = true;
+    activeResearch = { id: null, query, depth, breadth };
 
-        if (commandInput) {
-            commandInput.disabled = true;
-            commandInput.classList.add('input-locked');
-            commandInput.placeholder = 'Research in progress...';
-        }
-
-        if (socket && socket.connected) {
-            socket.emit('research-query', activeResearch);
-        } else {
-            writeError("Cannot perform research. Socket connection not available.");
-            writeSystem("Running in offline mode. Full functionality not available.");
-            isResearchInProgress = false;
-            if (commandInput) {
-                commandInput.disabled = false;
-                commandInput.classList.remove('input-locked');
-                commandInput.placeholder = '';
-            }
-        }
-    }
-
-    // Toggle AI chat mode
-    function toggleAIChat() {
-        aiChatMode = !aiChatMode;
-        if (commandInput) {
-            commandInput.placeholder = aiChatMode ? 'Ask me anything...' : '';
-        }
-
-        if (aiChatMode) {
-            writeSystem("Entering AI chat mode. Type 'exit' to leave.");
-            if (window.chatHistory.length === 0) {
-                window.chatHistory.push({
-                    user: 'system',
-                    message: 'Chat session initialized',
-                });
-            }
-        } else {
-            writeSystem("Exiting AI chat mode.");
-        }
-    }
-
-    // Process command
-    function processCommand(command) {
-        // Show command in terminal
-        appendOutput(`> ${command}`, 'command');
-
-        // Store in history
-        if (command.trim()) {
-            commandHistory.push(command);
-            historyPos = commandHistory.length;
-        } else return;
-
-        // Lowercase for checking
-        const cmd = command.trim().toLowerCase();
-        const args = cmd.split(' ');
-        const mainCmd = args[0];
-
-        // Check if socket is available for commands requiring server communication
-        const socketCommands = ['research', 'github:status', 'github:sync', 'github:test', 'models', 'status'];
-        if (socketCommands.includes(mainCmd) && (!socket || !socket.connected)) {
-            writeError("Command cannot be processed. Socket connection not available.");
-            writeSystem("Try using basic commands: help, clear, status");
-            return;
-        }
-
-        switch (mainCmd) {
-            case 'help':
-                showHelp();
-                break;
-            case 'clear':
-                clearTerminal();
-                break;
-            case 'status':
-                checkStatus();
-                break;
-            case 'research': {
-                // Must have quotes
-                const match = command.match(/research\s+"([^"]+)"/);
-                if (match && match[1]) {
-                    startResearch(match[1]);
-                } else {
-                    writeError('Research query must be in quotes. Example: research "quantum computing"');
-                }
-                break;
-            }
-            case 'chat':
-            case 'ai':
-                toggleAIChat();
-                break;
-            case 'exit':
-                if (aiChatMode) toggleAIChat();
-                else writeError("Not in AI chat mode");
-                break;
-            case 'github:status':
-                if (socket && socket.connected) {
-                    appendOutput("[SYSTEM] Checking GitHub connection status...", "system");
-                    socket.emit('github:verify-connection', {}, (response) => {
-                        if (response.connected) {
-                            appendOutput(`[GITHUB] Connected to repository: ${response.user}/${response.repo}`, "system");
-                        } else {
-                            appendOutput(`[GITHUB] Not connected: ${response.error}`, "system");
-                        }
-                    });
-                } else {
-                    writeError("Command cannot be processed. Socket connection not available.");
-                    writeSystem("Try using basic commands: help, clear, status");
-                }
-                break;
-            case 'github:sync':
-                if (socket && socket.connected) {
-                    appendOutput("[SYSTEM] Syncing research files with GitHub...", "system");
-                    socket.emit('github:sync-all-research', {}, (response) => {
-                        if (response.success) {
-                            appendOutput(`[GITHUB] Synced ${response.count} of ${response.total} files to GitHub`, "system");
-                        } else {
-                            appendOutput(`[GITHUB] Sync failed: ${response.error}`, "system");
-                        }
-                    });
-                } else {
-                    writeError("Command cannot be processed. Socket connection not available.");
-                    writeSystem("Try using basic commands: help, clear, status");
-                }
-                break;
-            case 'github:test':
-                if (socket && socket.connected) {
-                    appendOutput("[SYSTEM] Testing GitHub connectivity with sample file...", "system");
-                    socket.emit('github:test-upload', {}, (response) => {
-                        if (response.success) {
-                            appendOutput(`[GITHUB] Test successful. File uploaded to: ${response.url}`, "system");
-                        } else {
-                            appendOutput(`[GITHUB] Test failed: ${response.error}`, "system");
-                        }
-                    });
-                } else {
-                    writeError("Command cannot be processed. Socket connection not available.");
-                    writeSystem("Try using basic commands: help, clear, status");
-                }
-                break;
-            case 'depth': {
-                const d = parseInt(args[1]);
-                if (d >= 1 && d <= 5) {
-                    depth = d;
-                    writeSystem(`Research depth set to ${depth}`);
-                } else {
-                    writeError("Depth must be between 1 and 5");
-                }
-                break;
-            }
-            case 'breadth': {
-                const b = parseInt(args[1]);
-                if (b >= 2 && b <= 10) {
-                    breadth = b;
-                    writeSystem(`Research breadth set to ${breadth}`);
-                } else {
-                    writeError("Breadth must be between 2 and 10");
-                }
-                break;
-            }
-            case 'models':
-                showModels();
-                break;
-            default:
-                writeError(`Unknown command: ${command}`);
-                writeSystem(`Type "help" for available commands`);
-                break;
-        }
-    }
-
-    // Process AI chat message
-    function processChatMessage(message) {
-        // Show user line
-        writeUser(message);
-
-        // Show AI "thinking"
-        const thinkingEl = document.createElement('p');
-        thinkingEl.textContent = "[AI] Thinking...";
-        thinkingEl.className = "message-ai";
-        outputElement.appendChild(thinkingEl);
-        outputElement.scrollTop = outputElement.scrollHeight;
-
-        if (socket && socket.connected) {
-            socket.emit('terminal:ai-message', {
-                message: message,
-                history: window.chatHistory.filter(item => item.user !== 'system'),
-                model: 'deepseek-r1-671b'
-            }, (response) => {
-                outputElement.removeChild(thinkingEl);
-
-                const responseText = response.text || '';
-                // If there's a <think> block
-                const analysisMatch = responseText.match(/<think>([\s\S]*?)<\/think>/);
-                if (analysisMatch && analysisMatch[1]) {
-                    writeAnalysis(analysisMatch[1].trim());
-                    // Then the rest
-                    const actualResponse = responseText.replace(/<think>[\s\S]*?<\/think>/, '').trim();
-                    if (actualResponse) writeAI(actualResponse);
-                } else {
-                    writeAI(responseText);
-                }
-
-                if (response && response.success) {
-                    window.chatHistory.push({
-                        user: 'user',
-                        message: message,
-                        content: message
-                    });
-                    window.chatHistory.push({
-                        user: 'assistant',
-                        message: response.text,
-                        content: response.text
-                    });
-                }
-            });
-        } else {
-            setTimeout(() => {
-                outputElement.removeChild(thinkingEl);
-                writeAI("I'm currently running in offline mode. Full AI functionality is not available.");
-            }, 1500);
-        }
-    }
-
-    // Command input handling
     if (commandInput) {
-        commandInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                const command = commandInput.value.trim();
-                if (!command) return;
-                if (aiChatMode && !command.startsWith('/')) {
-                    processChatMessage(command);
-                } else if (aiChatMode && command === '/exit') {
-                    aiChatMode = false;
-                    writeSystem("Exiting AI chat mode. Type 'chat' to re-enter.");
-                } else {
-                    processCommand(command);
-                }
-                commandInput.value = '';
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (historyPos > 0) {
-                    historyPos--;
-                    commandInput.value = commandHistory[historyPos];
-                }
-            } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                if (historyPos < commandHistory.length - 1) {
-                    historyPos++;
-                    commandInput.value = commandHistory[historyPos];
-                } else {
-                    historyPos = commandHistory.length;
-                    commandInput.value = '';
-                }
-            }
-        });
+      commandInput.disabled = true;
+      commandInput.classList.add('input-locked');
+      commandInput.placeholder = 'Research in progress...';
     }
 
-    // Initialize terminal with CORE AI logo
-    function initializeTerminal() {
-        if (!outputElement) return;
+    if (socket && socket.connected) {
+      socket.emit('research-query', activeResearch);
+    } else {
+      writeError('Cannot perform research. Socket connection not available.');
+      writeSystem('Running in offline mode. Full functionality not available.');
+      if (commandInput) {
+        commandInput.disabled = false;
+        commandInput.classList.remove('input-locked');
+        commandInput.placeholder = '';
+      }
+    }
+  }
 
-        // Clear any existing content
-        outputElement.innerHTML = '';
+  // Toggle AI chat mode
+  function toggleAIChat() {
+    aiChatMode = !aiChatMode;
+    if (commandInput) {
+      commandInput.placeholder = aiChatMode ? 'Ask me anything...' : '';
+    }
 
-        // Add logo (only once)
-        const logoElement = document.createElement('pre');
-        logoElement.className = 'ascii-logo';
-        logoElement.textContent = `
+    if (aiChatMode) {
+      writeSystem('Entering AI chat mode. Type \'exit\' to leave.');
+      if (window.chatHistory.length === 0) {
+        window.chatHistory.push({
+          user: 'system',
+          message: 'Chat session initialized',
+        });
+      }
+    } else {
+      writeSystem('Exiting AI chat mode.');
+    }
+  }
+
+  // Process command
+  function processCommand(command) {
+    // Show command in terminal
+    appendOutput(`> ${command}`, 'command');
+
+    // Store in history
+    if (command.trim()) {
+      commandHistory.push(command);
+      historyPos = commandHistory.length;
+    } else return;
+
+    // Lowercase for checking
+    const cmd = command.trim().toLowerCase();
+    const args = cmd.split(' ');
+    const mainCmd = args[0];
+
+    // Check if socket is available for commands requiring server communication
+    const socketCommands = ['research', 'github:status', 'github:sync', 'github:test', 'models', 'status'];
+    if (socketCommands.includes(mainCmd) && (!socket || !socket.connected)) {
+      writeError('Command cannot be processed. Socket connection not available.');
+      writeSystem('Try using basic commands: help, clear, status');
+      return;
+    }
+
+    switch (mainCmd) {
+    case 'help':
+      showHelp();
+      break;
+    case 'clear':
+      clearTerminal();
+      break;
+    case 'status':
+      checkStatus();
+      break;
+    case 'research': {
+      // Must have quotes
+      const match = command.match(/research\s+"([^"]+)"/);
+      if (match && match[1]) {
+        startResearch(match[1]);
+      } else {
+        writeError('Research query must be in quotes. Example: research "quantum computing"');
+      }
+      break;
+    }
+    case 'chat':
+    case 'ai':
+      toggleAIChat();
+      break;
+    case 'exit':
+      if (aiChatMode) toggleAIChat();
+      else writeError('Not in AI chat mode');
+      break;
+    case 'github:status':
+      if (socket && socket.connected) {
+        appendOutput('[SYSTEM] Checking GitHub connection status...', 'system');
+        socket.emit('github:verify-connection', {}, (response) => {
+          if (response.connected) {
+            appendOutput(`[GITHUB] Connected to repository: ${response.user}/${response.repo}`, 'system');
+          } else {
+            appendOutput(`[GITHUB] Not connected: ${response.error}`, 'system');
+          }
+        });
+      } else {
+        writeError('Command cannot be processed. Socket connection not available.');
+        writeSystem('Try using basic commands: help, clear, status');
+      }
+      break;
+    case 'github:sync':
+      if (socket && socket.connected) {
+        appendOutput('[SYSTEM] Syncing research files with GitHub...', 'system');
+        socket.emit('github:sync-all-research', {}, (response) => {
+          if (response.success) {
+            appendOutput(`[GITHUB] Synced ${response.count} of ${response.total} files to GitHub`, 'system');
+          } else {
+            appendOutput(`[GITHUB] Sync failed: ${response.error}`, 'system');
+          }
+        });
+      } else {
+        writeError('Command cannot be processed. Socket connection not available.');
+        writeSystem('Try using basic commands: help, clear, status');
+      }
+      break;
+    case 'github:test':
+      if (socket && socket.connected) {
+        appendOutput('[SYSTEM] Testing GitHub connectivity with sample file...', 'system');
+        socket.emit('github:test-upload', {}, (response) => {
+          if (response.success) {
+            appendOutput(`[GITHUB] Test successful. File uploaded to: ${response.url}`, 'system');
+          } else {
+            appendOutput(`[GITHUB] Test failed: ${response.error}`, 'system');
+          }
+        });
+      } else {
+        writeError('Command cannot be processed. Socket connection not available.');
+        writeSystem('Try using basic commands: help, clear, status');
+      }
+      break;
+    case 'depth': {
+      const d = parseInt(args[1]);
+      if (d >= 1 && d <= 5) {
+        depth = d;
+        writeSystem(`Research depth set to ${depth}`);
+      } else {
+        writeError('Depth must be between 1 and 5');
+      }
+      break;
+    }
+    case 'breadth': {
+      const b = parseInt(args[1]);
+      if (b >= 2 && b <= 10) {
+        breadth = b;
+        writeSystem(`Research breadth set to ${breadth}`);
+      } else {
+        writeError('Breadth must be between 2 and 10');
+      }
+      break;
+    }
+    case 'models':
+      showModels();
+      break;
+    default:
+      writeError(`Unknown command: ${command}`);
+      writeSystem(`Type "help" for available commands`);
+      break;
+    }
+  }
+
+  // Process AI chat message
+  function processChatMessage(message) {
+    // Show user line
+    writeUser(message);
+
+    // Show AI "thinking"
+    const thinkingEl = document.createElement('p');
+    thinkingEl.textContent = '[AI] Thinking...';
+    thinkingEl.className = 'message-ai';
+    outputElement.appendChild(thinkingEl);
+    outputElement.scrollTop = outputElement.scrollHeight;
+
+    if (socket && socket.connected) {
+      socket.emit('terminal:ai-message', {
+        message: message,
+        history: window.chatHistory.filter(item => item.user !== 'system'),
+        model: 'deepseek-r1-671b'
+      }, (response) => {
+        outputElement.removeChild(thinkingEl);
+
+        const responseText = response.text || '';
+        // If there's a <think> block
+        const analysisMatch = responseText.match(/<think>([\s\S]*?)<\/think>/);
+        if (analysisMatch && analysisMatch[1]) {
+          writeAnalysis(analysisMatch[1].trim());
+          // Then the rest
+          const actualResponse = responseText.replace(/<think>[\s\S]*?<\/think>/, '').trim();
+          if (actualResponse) writeAI(actualResponse);
+        } else {
+          writeAI(responseText);
+        }
+
+        if (response && response.success) {
+          window.chatHistory.push({
+            user: 'user',
+            message: message,
+            content: message
+          });
+          window.chatHistory.push({
+            user: 'assistant',
+            message: response.text,
+            content: response.text
+          });
+        }
+      });
+    } else {
+      setTimeout(() => {
+        outputElement.removeChild(thinkingEl);
+        writeAI('I\'m currently running in offline mode. Full AI functionality is not available.');
+      }, 1500);
+    }
+  }
+
+  // Command input handling
+  if (commandInput) {
+    commandInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const command = commandInput.value.trim();
+        if (!command) return;
+        if (aiChatMode && !command.startsWith('/')) {
+          processChatMessage(command);
+        } else if (aiChatMode && command === '/exit') {
+          aiChatMode = false;
+          writeSystem('Exiting AI chat mode. Type \'chat\' to re-enter.');
+        } else {
+          processCommand(command);
+        }
+        commandInput.value = '';
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (historyPos > 0) {
+          historyPos--;
+          commandInput.value = commandHistory[historyPos];
+        }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (historyPos < commandHistory.length - 1) {
+          historyPos++;
+          commandInput.value = commandHistory[historyPos];
+        } else {
+          historyPos = commandHistory.length;
+          commandInput.value = '';
+        }
+      }
+    });
+  }
+
+  // Initialize terminal with CORE AI logo
+  function initializeTerminal() {
+    if (!outputElement) return;
+
+    // Clear any existing content
+    outputElement.innerHTML = '';
+
+    // Add logo (only once)
+    const logoElement = document.createElement('pre');
+    logoElement.className = 'ascii-logo';
+    logoElement.textContent = `
  ██████╗  ██████╗  ██████╗  ███████╗      █████╗  ██╗
 ██╔════╝██╔═══██╗ ██╔══██╗ ██╔════╝      ██╔══██╗ ██║
 ██║     ██║   ██║ ██████╔╝ █████╗        ███████║ ██║
@@ -510,118 +506,116 @@ document.addEventListener('DOMContentLoaded', () => {
 ╚██████╗╚██████╔╝ ██║  ██║ ███████╗      ██║  ██║ ██║
  ╚═════╝ ╚═════╝  ╚═╝  ╚═╝  ╚══════╝      ╚═╝  ╚═╝ ╚═╝
         `;
-        outputElement.appendChild(logoElement);
+    outputElement.appendChild(logoElement);
 
-        // Add separator
-        const separatorElement = document.createElement('div');
-        separatorElement.className = 'deep-research';
-        separatorElement.textContent = '============== DEEP RESEARCH PRIVACY ==============';
-        outputElement.appendChild(separatorElement);
+    // Add separator
+    const separatorElement = document.createElement('div');
+    separatorElement.className = 'deep-research';
+    separatorElement.textContent = '============== DEEP RESEARCH PRIVACY ==============';
+    outputElement.appendChild(separatorElement);
 
-        // Initialize with system messages
-        writeSystem("Initializing CORE AI subsystems...");
-        writeSystem("Loading research modules...");
-        writeSystem("Connecting to Venice.ai...");
-        writeSystem("Connecting to Brave Search...");
-        writeSystem("All systems operational.");
-        writeSystem("CORE AI terminal ready. Type help for commands.");
+    // Initialize with system messages
+    writeSystem('Initializing CORE AI subsystems...');
+    writeSystem('Loading research modules...');
+    writeSystem('Connecting to Venice.ai...');
+    writeSystem('Connecting to Brave Search...');
+    writeSystem('All systems operational.');
+    writeSystem('CORE AI terminal ready. Type help for commands.');
 
-        // Check if socket is connected
-        if (socket && socket.connected) {
-            writeSystem("Connection established");
-        } else {
-            writeError("Failed to establish connection. Terminal operating in offline mode.");
-            writeSystem("Try using basic commands: help, clear, status");
-        }
+    // Check if socket is connected
+    if (socket && socket.connected) {
+      writeSystem('Connection established');
+    } else {
+      writeError('Failed to establish connection. Terminal operating in offline mode.');
+      writeSystem('Try using basic commands: help, clear, status');
     }
+  }
 
-    // Socket events
-    if (socket) {
-        socket.on('connect', () => {
-            // Dispatch custom event to handle connection
-            const connectedEvent = new Event('socket:connected');
-            document.dispatchEvent(connectedEvent);
-            writeSystem("Connection established");
-        });
+  // Socket events
+  if (socket) {
+    socket.on('connect', () => {
+      // Dispatch custom event to handle connection
+      const connectedEvent = new Event('socket:connected');
+      document.dispatchEvent(connectedEvent);
+      writeSystem('Connection established');
+    });
 
-        socket.on('disconnect', () => {
-            // Dispatch custom event to handle disconnection
-            const disconnectedEvent = new Event('socket:disconnected');
-            document.dispatchEvent(disconnectedEvent);
-        });
+    socket.on('disconnect', () => {
+      // Dispatch custom event to handle disconnection
+      const disconnectedEvent = new Event('socket:disconnected');
+      document.dispatchEvent(disconnectedEvent);
+    });
 
 
-        socket.on('error', (error) => {
-            // Dispatch custom event to handle errors
-            const errorEvent = new Event('socket:error');
-            document.dispatchEvent(errorEvent);
-            console.error("Socket.IO error:", error);
-        });
+    socket.on('error', (error) => {
+      // Dispatch custom event to handle errors
+      const errorEvent = new Event('socket:error');
+      document.dispatchEvent(errorEvent);
+      console.error('Socket.IO error:', error);
+    });
 
-        socket.on('research-progress', (data) => {
-            if (!activeResearch) return;
-            if (!activeResearch.id && data.id) {
-                activeResearch.id = data.id;
-            }
-            updateProgress(data.progress, data.message);
-            writeResearch(data.message);
+    socket.on('research-progress', (data) => {
+      if (!activeResearch) return;
+      if (!activeResearch.id && data.id) {
+        activeResearch.id = data.id;
+      }
+      updateProgress(data.progress, data.message);
+      writeResearch(data.message);
 
-            if (data.thoughtProcess) {
-                appendHTML(`
+      if (data.thoughtProcess) {
+        appendHTML(`
                     <div class="thought-process">
                         <div class="thought-process-header">Chain of Thought:</div>
                         <div class="thought-process-content">${data.thoughtProcess}</div>
                     </div>
                 `);
-            }
-            if (data.intermediateResults) {
-                appendHTML(`
+      }
+      if (data.intermediateResults) {
+        appendHTML(`
                     <div class="intermediate-results">
                         <div class="intermediate-results-header">Intermediate Results:</div>
                         <div class="intermediate-results-content">${data.intermediateResults}</div>
                     </div>
                 `);
-            }
-        });
+      }
+    });
 
-        socket.on('research-complete', (data) => {
-            if (!activeResearch || activeResearch.id !== data.id) return;
-            progressFill.style.width = '100%';
-            progressText.textContent = 'Research complete!';
-            setTimeout(() => {
-                progressFill.style.width = '0%';
-                progressText.textContent = 'Ready';
-            }, 3000);
+    socket.on('research-complete', (data) => {
+      if (!activeResearch || activeResearch.id !== data.id) return;
+      progressFill.style.width = '100%';
+      progressText.textContent = 'Research complete!';
+      setTimeout(() => {
+        progressFill.style.width = '0%';
+        progressText.textContent = 'Ready';
+      }, 3000);
 
-            commandInput.disabled = false;
-            commandInput.classList.remove('input-locked');
-            commandInput.placeholder = '';
-            commandInput.focus();
-            isResearchInProgress = false;
+      commandInput.disabled = false;
+      commandInput.classList.remove('input-locked');
+      commandInput.placeholder = '';
+      commandInput.focus();
 
-            if (data.results) {
-                appendOutput(`[RESEARCH] ${data.results}`, 'success');
-            }
-        });
+      if (data.results) {
+        appendOutput(`[RESEARCH] ${data.results}`, 'success');
+      }
+    });
 
-        socket.on('research-error', (data) => {
-            commandInput.disabled = false;
-            commandInput.classList.remove('input-locked');
-            commandInput.placeholder = '';
-            commandInput.focus();
-            isResearchInProgress = false;
+    socket.on('research-error', (data) => {
+      commandInput.disabled = false;
+      commandInput.classList.remove('input-locked');
+      commandInput.placeholder = '';
+      commandInput.focus();
 
-            progressText.textContent = 'Error';
-            progressFill.style.width = '0%';
-            progressFill.style.backgroundColor = '#ff6b6b';
+      progressText.textContent = 'Error';
+      progressFill.style.width = '0%';
+      progressFill.style.backgroundColor = '#ff6b6b';
 
-            if (data.message) {
-                writeError(data.message);
-            }
-        });
+      if (data.message) {
+        writeError(data.message);
+      }
+    });
 
-        socket.on('system-stats', (stats) => {
-            appendHTML(`
+    socket.on('system-stats', (stats) => {
+      appendHTML(`
                 <div class="system-stats">
                     <h3>SYSTEM STATUS</h3>
                     <div class="stat-item">
@@ -637,10 +631,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `);
-        });
+    });
 
-        socket.on('api-status', (status) => {
-            appendHTML(`
+    socket.on('api-status', (status) => {
+      appendHTML(`
                 <div class="api-status">
                     <h3>API STATUS</h3>
                     <div class="stat-item">
@@ -653,80 +647,84 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
             `);
+    });
+
+    socket.on('research-status', (data) => {
+      const percent = data.progress || 0;
+      updateProgress(percent, data.message || 'Processing...');
+      if (data.message) {
+        writeResearch(data.message);
+      }
+
+      if (data.thoughtProcess) {
+        let processContainer = document.querySelector('.research-process-container');
+        if (!processContainer) {
+          processContainer = document.createElement('div');
+          processContainer.className = 'research-process-container';
+          outputElement.appendChild(processContainer);
+
+          const header = document.createElement('div');
+          header.className = 'research-step-header';
+          header.textContent = '=== RESEARCH PROCESS ===';
+          processContainer.appendChild(header);
+        }
+        processContainer.innerHTML = '';
+        const header = document.createElement('div');
+        header.className = 'research-step-header';
+        header.textContent = '=== RESEARCH PROCESS ===';
+        processContainer.appendChild(header);
+
+        const thoughts = data.thoughtProcess.split('<br>');
+        thoughts.forEach(thought => {
+          if (thought.trim()) {
+            const thoughtElement = document.createElement('div');
+            thoughtElement.className = 'ai-thought';
+            thoughtElement.textContent = thought;
+            processContainer.appendChild(thoughtElement);
+          }
         });
+        processContainer.scrollTop = processContainer.scrollHeight;
+        outputElement.scrollTop = outputElement.scrollHeight;
+      }
+    });
 
-        socket.on('research-status', (data) => {
-            const percent = data.progress || 0;
-            updateProgress(percent, data.message || 'Processing...');
-            if (data.message) {
-                writeResearch(data.message);
-            }
+    // Additional "chat-reasoning" or "chat-response" events, if needed
+    socket.on('chat-reasoning', (data) => {
+      if (data.success && data.reasoning) {
+        appendOutput(`[THINKING] ${data.reasoning}`, 'thinking');
+      }
+    });
 
-            if (data.thoughtProcess) {
-                let processContainer = document.querySelector('.research-process-container');
-                if (!processContainer) {
-                    processContainer = document.createElement('div');
-                    processContainer.className = 'research-process-container';
-                    outputElement.appendChild(processContainer);
+    socket.on('chat-response', (data) => {
+      hideProgress();
+      if (data.success) {
+        writeAI(data.response);
+      } else {
+        writeError(data.response || 'Unknown error');
+      }
+    });
+  }
 
-                    const header = document.createElement('div');
-                    header.className = 'research-step-header';
-                    header.textContent = '=== RESEARCH PROCESS ===';
-                    processContainer.appendChild(header);
-                }
-                processContainer.innerHTML = '';
-                const header = document.createElement('div');
-                header.className = 'research-step-header';
-                header.textContent = '=== RESEARCH PROCESS ===';
-                processContainer.appendChild(header);
-
-                const thoughts = data.thoughtProcess.split('<br>');
-                thoughts.forEach(thought => {
-                    if (thought.trim()) {
-                        const thoughtElement = document.createElement('div');
-                        thoughtElement.className = 'ai-thought';
-                        thoughtElement.textContent = thought;
-                        processContainer.appendChild(thoughtElement);
-                    }
-                });
-                processContainer.scrollTop = processContainer.scrollHeight;
-                outputElement.scrollTop = outputElement.scrollHeight;
-            }
-        });
-
-        // Additional "chat-reasoning" or "chat-response" events, if needed
-        socket.on('chat-reasoning', (data) => {
-            if (data.success && data.reasoning) {
-                appendOutput(`[THINKING] ${data.reasoning}`, 'thinking');
-            }
-        });
-
-        socket.on('chat-response', (data) => {
-            hideProgress();
-            if (data.success) {
-                writeAI(data.response);
-            } else {
-                writeError(data.response || 'Unknown error');
-            }
-        });
-    }
-
-    // Initialize terminal with CORE AI logo
-    initializeTerminal();
-    console.log('COREAI Research System initialized');
+  // Initialize terminal with CORE AI logo
+  initializeTerminal();
+  console.log('COREAI Research System initialized');
 });
 
 //Helper functions assumed to be defined elsewhere
 function addSystemMessage(message) {
-    //Implementation to add system message to the UI
-    console.log("System message:", message);
+  //Implementation to add system message to the UI
+  console.log('System message:', message);
 }
 
 function addErrorMessage(message) {
-    //Implementation to add error message to the UI
-    console.error("Error message:", message);
+  //Implementation to add error message to the UI
+  console.error('Error message:', message);
 }
 document.addEventListener('DOMContentLoaded', function() {
+  // Skip if already initialized
+  if (window.terminalSecondInitDone) return;
+  window.terminalSecondInitDone = true;
+
   // DOM Elements
   const terminalOutput = document.getElementById('terminal-output');
   const terminalInput = document.getElementById('terminal-input');

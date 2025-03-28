@@ -1,4 +1,4 @@
-import logger from "../../../services/logger";
+import logger from "../../services/logger.mjs";
 import { inject } from "../../../di-container";
 
 const aiService = inject("CoreAIService");
@@ -27,3 +27,17 @@ export const researchSocketHandler = (io) => {
     );
   });
 };
+
+export default function initializeSockets(io) {
+  io.on('connection', (socket) => {
+    logger.info('Client connected:', {
+      id: socket.id,
+      headers: socket.handshake.headers,
+      address: socket.handshake.address
+    });
+    
+    socket.on('disconnect', () => {
+      logger.info('Client disconnected:', socket.id);
+    });
+  });
+}

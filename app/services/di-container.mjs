@@ -30,7 +30,7 @@ export async function loadModule(modulePath) {
     if (modulePath.includes('/brave/')) {
       return {
         default: {
-          init: (app) => logger.info('Mock Brave module initialized')
+          init: (_app) => logger.info('Mock Brave module initialized')
         }
       };
     }
@@ -68,14 +68,14 @@ export const container = {
 // Default configuration for AI providers with fallbacks to environment variables
 const defaultAiConfig = {
   openai: {
-    apiKey: process.env.OPENAI_API_KEY || "",
-    modelName: process.env.OPENAI_MODEL || "gpt-3.5-turbo",
+    apiKey: process.env.OPENAI_API_KEY || '',
+    modelName: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
     temperature: Number(process.env.OPENAI_TEMP) || 0.7,
     maxTokens: Number(process.env.OPENAI_MAX_TOKENS) || 500
   },
   anthropic: {
-    apiKey: process.env.ANTHROPIC_API_KEY || "",
-    modelName: process.env.ANTHROPIC_MODEL || "claude-2",
+    apiKey: process.env.ANTHROPIC_API_KEY || '',
+    modelName: process.env.ANTHROPIC_MODEL || 'claude-2',
     temperature: Number(process.env.ANTHROPIC_TEMP) || 0.7,
     maxTokens: Number(process.env.ANTHROPIC_MAX_TOKENS) || 500
   },
@@ -111,12 +111,11 @@ container.bindSingleton('logger', () => {
 
 // Register the data store dependency
 container.bindSingleton('dataStore', () => {
-  const config = container.resolve('config');
   const logger = container.resolve('logger');
 
   // Simple filesystem-based data store
   return {
-    saveData: async (key, data) => {
+    saveData: async (key, _data) => {
       // Implementation for saving data
       logger.info(`Saving data for key: ${key}`, 'DataStore');
       return { success: true };
@@ -131,7 +130,6 @@ container.bindSingleton('dataStore', () => {
 
 // Register the research service
 container.bindSingleton('researchService', () => {
-  const config = container.resolve('config');
   const dataStore = container.resolve('dataStore');
   const logger = container.resolve('logger');
 
@@ -141,7 +139,7 @@ container.bindSingleton('researchService', () => {
   // Create and return a new instance of the ResearchService
   try {
     return new ResearchService({
-      aiProvidersConfig: config.aiProviders,
+      aiProvidersConfig: container.resolve('config').aiProviders,
       dataStore: dataStore
     });
   } catch (error) {
@@ -152,10 +150,10 @@ container.bindSingleton('researchService', () => {
 
 // Register AI service with proper configuration
 container.bindSingleton('aiService', () => {
-  const config = container.resolve('config');
   const logger = container.resolve('logger');
 
   // Ensure config.aiProviders exists
+  const config = container.resolve('config');
   if (!config.aiProviders) {
     logger.error('AI providers configuration is missing', 'DIContainer');
     throw new Error('AI providers configuration is missing');
@@ -169,10 +167,10 @@ container.bindSingleton('aiService', () => {
         throw new Error(`AI provider ${providerName} not configured`);
       }
       return {
-        generateText: async (prompt, options = {}) => {
+        generateText: async (prompt, _options = {}) => {
           logger.info(`Generating text with ${providerName}`, 'AIService');
           // Implementation for generating text with the AI provider
-          return { text: "AI generated response would go here" };
+          return { text: 'AI generated response would go here' };
         }
       };
     },

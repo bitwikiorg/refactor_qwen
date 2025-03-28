@@ -1,4 +1,3 @@
-
 /**
  * Memory Management Frontend Script
  * This script handles the memory management UI and interactions.
@@ -19,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const submitQueryBtn = document.getElementById('submitQueryBtn');
   const aiSystemSelect = document.getElementById('aiSystemSelect');
   const currentMemorySize = document.getElementById('currentMemorySize');
-  const consolidationStatus = document.getElementById('consolidationStatus');
+  // const consolidationStatus = document.getElementById('consolidationStatus');
     
   // Memory operations panel elements
   const memoryOperationsPanel = document.getElementById('memoryOperationsPanel');
@@ -598,5 +597,11 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {
       return false;
     }
+  }
+
+  // Added stub for missing function showStatusMessage:
+  function showStatusMessage(message) {
+    // TODO: add real implementation if needed
+    console.log(message);
   }
 });

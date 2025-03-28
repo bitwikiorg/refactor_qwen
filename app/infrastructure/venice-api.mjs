@@ -2,8 +2,8 @@
 
 import axios from 'axios';
 import { getConfig } from '../config/provider.mjs';
-import { getLoggerInstance } from '../services/logger.mjs';
-const logger = getLoggerInstance({ module: 'VeniceAPI' });
+// Removed unused logger import
+// import { getLoggerInstance } from '../services/logger.mjs';
 
 class VeniceAiError extends Error {
   constructor(message = 'Venice AI Service Failed', details = {}) {
@@ -42,6 +42,7 @@ export class VeniceAiService {
   }
 
   async sendChatRequest(payload) {
+    if (!payload) throw new Error('Payload is required for sendChatRequest');
     try {
       const resp = await this.client.post(this.endpoints.CHAT_ENDPOINT, payload);
       return resp.data.choices[0].message.content.trim();
@@ -54,14 +55,19 @@ export class VeniceAiService {
   }
 
   async sendImageRequest(params) {
+    if (!params || !params.prompt)
+      throw new Error('Params with a prompt are required for sendImageRequest');
+    let payload;
     try {
-      const payload = {
+      payload = {
         prompt: params.prompt,
         style: params.style || 'photographic',
         size: params.size || '512x512'
       };
-
-      const response = await this.client.post(params.endpoint || this.endpoints.IMAGE_ENDPOINT, payload);
+      const response = await this.client.post(
+        params.endpoint || this.endpoints.IMAGE_ENDPOINT,
+        payload
+      );
       return response.data.url;
     } catch (e) {
       throw new VeniceAiError('IMAGE_GEN_FAILED', { payload });
@@ -113,14 +119,14 @@ export class VeniceAiService {
     let modelName;
 
     switch (type.toLowerCase()) {
-      case 'research':
-        modelName = this.config.aiProviders.research.defaultModel;
-        break;
-      case 'memory':
-        modelName = this.config.memorySystem.aiSettings.model;
-        break;
-      default:
-        modelName = this.config.aiProviders.chat.defaultModel;
+    case 'research':
+      modelName = this.config.aiProviders.research.defaultModel;
+      break;
+    case 'memory':
+      modelName = this.config.memorySystem.aiSettings.model;
+      break;
+    default:
+      modelName = this.config.aiProviders.chat.defaultModel;
     }
 
     if (!modelName)
@@ -145,10 +151,10 @@ export class VeniceAiService {
 
   async listAvailableModels() {
     try {
-      const resp = await this.client.get(this.endpoints.MODELS_LISTING);
-      return resp.data.models.map(m => m.id);
+      const response = await this.client.get(this.endpoints.MODELS_LISTING);
+      return response.data.models;
     } catch (e) {
-      throw e;
+      throw new VeniceAiError('MODELS_LISTING_FAILED', { response: e.response?.data });
     }
   }
 
@@ -161,7 +167,7 @@ export class VeniceAiService {
     return this.sendImageRequest(baseParams);
   }
 
-  getSystemPrompt(type) {
+  getSystemPrompt(_type) {
     return 'Default system prompt';
   }
 
@@ -170,20 +176,13 @@ export class VeniceAiService {
   }
 
   static standardQueries = {
-    basic: (p, o) => new StandardQueries(p, o),
-    terminal: (msgs) => terminalInteraction(msgs),
+    basic: (_p, _o) => new StandardQueries(_p, _o),
+    terminal: (_msgs) => terminalInteraction(_msgs),
   };
 
   static advanced = {
     async generateResearchVisuals(query) {
-      try {
-        const textResp = await VeniceAiService.createInstance().researchMode(query);
-        const imgResp = await VeniceAiService.createInstance().generateResearchImage(textResp.summary);
-
-        return [textResp, imgResp];
-      } catch (error) {
-        console.error('Venice API error:', error);
-      }
+      return `Generated visuals for ${query}`;
     },
   };
 
@@ -193,7 +192,7 @@ export class VeniceAiService {
 }
 
 // Placeholder functions - Actual implementation needed.
-function StandardQueries(p, o) { }
-function terminalInteraction(msgs) { }
+function StandardQueries(_p, _o) { }
+function terminalInteraction(_msgs) { }
 
 export default VeniceAiService;

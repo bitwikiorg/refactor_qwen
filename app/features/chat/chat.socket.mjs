@@ -50,7 +50,7 @@ export const chatNamespaceHandler = async (ioContainer = {}) => {
 };
 
 // Primary initialization entry point  
-export async function initialize(io) {
+export async function init(io) { // renamed from 'initialize'
   if (!io) {
     throw new Error("Socket connection not available");
   }

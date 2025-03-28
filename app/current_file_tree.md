@@ -197,3 +197,7 @@ views/
 
 
 ```
+
+# Changelog
+- Fixed duplicate initialization in terminal module (app/public/js/terminal.js) to avoid multiple client connections.
+- Added ESLint setup for debugging syntax errors (run "npm run lint" and "npm run lint:fix").

@@ -1,4 +1,3 @@
-
 // Socket.IO client integration
 (function() {
   // Check if Socket.IO is already loaded
@@ -190,7 +189,6 @@ window.SocketClient = {
   offEvent
 };
 // Improved Socket.IO client connection handling
-let socket = null;
 let reconnectAttempts = 0;
 const maxReconnectAttempts = 3;
 

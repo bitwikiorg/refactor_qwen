@@ -86,6 +86,23 @@ export const getSchedulerInstance = () => {
 })();
 };
 
+export class TaskScheduler {
+    constructor() {
+        this.tasks = [];
+    }
+
+    schedule(task, interval) {
+        const id = setInterval(task, interval);
+        this.tasks.push(id);
+        return id;
+    }
+
+    cancel(id) {
+        clearInterval(id);
+        this.tasks = this.tasks.filter(taskId => taskId !== id);
+    }
+}
+
 // Export types explicitly instead of object literals:
 export type ScheduleResultType 
   extends Record < 'scheduledAt', Date > {}
@@ -94,4 +111,4 @@ export * from './service'; // Re-export service layer components explicitly
 export * as RoutesNamespace from './routes';
 
 // Deprecate direct repo exports - use through service layers:
-// export * as RepoLayer from './repo'; 
+// export * as RepoLayer from './repo';

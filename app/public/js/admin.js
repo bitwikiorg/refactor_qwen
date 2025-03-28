@@ -1,3 +1,4 @@
+/* global venicePluginStatus, githubPluginStatus */
 document.addEventListener('DOMContentLoaded', () => {
   const socket = io();
   // GitHub Repository Configuration Elements
@@ -14,19 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const githubTokenInput = document.getElementById('github-token');
 
   // GitHub Status and Actions Elements
-  const githubApiStatus = document.getElementById('github-api-status');
-  const githubStatusDetails = document.getElementById('github-status-details');
   const verifyConnectionBtn = document.getElementById('verify-connection');
-  const syncAllResearchBtn = document.getElementById('sync-all-research');
-  const uploadResearchBtn = document.getElementById('upload-research-btn');
-  const testGithubUploadBtn = document.getElementById('test-github-upload');
   const refreshActivityBtn = document.getElementById('refresh-activity');
   const githubActivity = document.getElementById('github-activity');
-  const uploadFileBtn = document.getElementById('upload-file-btn');
-  const uploadResult = document.getElementById('upload-result');
-  const filePathInput = document.getElementById('file-path-input');
-  const commitMessageInput = document.getElementById('commit-message-input');
-  const fileContentInput = document.getElementById('file-content-input');
 
   // System and API Elements
   const systemLog = document.getElementById('system-log');
@@ -39,11 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const veniceStatusEl = document.getElementById('venice-status');
   const searchStatusEl = document.getElementById('search-status');
   const githubStatusEl = document.getElementById('github-status');
-  const storageStatusEl = document.getElementById('storage-status');
   const veniceDetailsEl = document.getElementById('venice-details');
   const searchDetailsEl = document.getElementById('search-details');
   const githubDetailsEl = document.getElementById('github-details');
-  const storageDetailsEl = document.getElementById('storage-details');
   const defaultDepthInput = document.getElementById('default-depth');
   const defaultBreadthInput = document.getElementById('default-breadth');
   const publicResearchSelect = document.getElementById('public-research');
@@ -173,37 +162,37 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePluginStatus(githubPluginStatus, 'OFFLINE');
   });
 
-  socket.on('api-status', (data) => {
-    updateAPIStatus(data);
+  socket.on('api-status', (_data) => {
+    updateAPIStatus(_data);
   });
 
-  socket.on('config-saved', (data) => {
-    addLogEntry(data.message, 'success');
+  socket.on('config-saved', (_data) => {
+    addLogEntry(_data.message, 'success');
     checkAPIStatus();
   });
 
-  socket.on('config-error', (data) => {
-    addLogEntry(data.message, 'error');
+  socket.on('config-error', (_data) => {
+    addLogEntry(_data.message, 'error');
   });
 
-  socket.on('research-settings-saved', (data) => {
+  socket.on('research-settings-saved', (_data) => {
     addLogEntry('Research settings saved', 'success');
   });
 
-  socket.on('github:settings-saved', (data) => {
+  socket.on('github:settings-saved', (_data) => {
     addLogEntry('GitHub settings saved', 'success');
   });
 
-  socket.on('github:memory-settings-saved', (data) => {
+  socket.on('github:memory-settings-saved', (_data) => {
     addLogEntry('GitHub memory settings saved', 'success');
   });
 
-  socket.on('plugin-status', (data) => {
+  socket.on('plugin-status', (_data) => {
     updatePluginStatus(
-      data.plugin === 'venice' ? venicePluginStatus : githubPluginStatus, 
-      data.status
+      _data.plugin === 'venice' ? venicePluginStatus : githubPluginStatus, 
+      _data.status
     );
-    addLogEntry(`Plugin ${data.plugin} status: ${data.status}`);
+    addLogEntry(`Plugin ${_data.plugin} status: ${_data.status}`);
   });
 
   // GitHub activity events
@@ -291,41 +280,59 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // GitHub specific helper functions
-  function updateGitHubConnectionStatus(status) {
-    if (githubApiStatus) {
-      if (status.connected) {
-        githubApiStatus.textContent = 'CONNECTED';
-        githubApiStatus.className = 'status-value active';
-      } else {
-        githubApiStatus.textContent = 'DISCONNECTED';
-        githubApiStatus.className = 'status-value inactive';
-      }
-    }
+  // Function originally defined but unused – comment out to fix ESLint warning:
+  // function updateGitHubConnectionStatus(status) {
+  //   if (githubApiStatus) {
+  //     if (status.connected) {
+  //       githubApiStatus.textContent = 'CONNECTED';
+  //       githubApiStatus.className = 'status-value active';
+  //     } else {
+  //       githubApiStatus.textContent = 'DISCONNECTED';
+  //       githubApiStatus.className = 'status-value inactive';
+  //     }
+  //   }
 
-    if (githubStatusDetails) {
-      if (status.connected) {
-        githubStatusDetails.textContent = `Connected to repository: ${status.user}/${status.repo}`;
-      } else {
-        githubStatusDetails.textContent = status.error || 'Unknown error';
-      }
-    }
+  //   if (githubStatusDetails) {
+  //     if (status.connected) {
+  //       githubStatusDetails.textContent = `Connected to repository: ${status.user}/${status.repo}`;
+  //     } else {
+  //       githubStatusDetails.textContent = status.error || 'Unknown error';
+  //     }
+  //   }
 
-    if (githubStatusEl) {
-      githubStatusEl.textContent = status.connected ? 'ACTIVE' : 'INACTIVE';
-      githubStatusEl.className = status.connected ? 'status-value active' : 'status-value inactive';
-    }
+  //   if (githubStatusEl) {
+  //     githubStatusEl.textContent = status.connected ? 'ACTIVE' : 'INACTIVE';
+  //     githubStatusEl.className = status.connected ? 'status-value active' : 'status-value inactive';
+  //   }
 
-    if (githubDetailsEl) {
-      githubDetailsEl.textContent = status.connected ? 
-        `Repository: ${status.user}/${status.repo}` : 
-        'Not configured';
-    }
+  //   if (githubDetailsEl) {
+  //     githubDetailsEl.textContent = status.connected ? 
+  //       `Repository: ${status.user}/${status.repo}` : 
+  //       'Not configured';
+  //   }
 
-    addLogEntry(status.connected ? 
-      `GitHub connection verified: ${status.user}/${status.repo}` : 
-      `GitHub connection failed: ${status.error || 'Unknown error'}`, 
-    status.connected ? 'success' : 'error');
-  }
+  //   addLogEntry(status.connected ? 
+  //     `GitHub connection verified: ${status.user}/${status.repo}` : 
+  //     `GitHub connection failed: ${status.error || 'Unknown error'}`, 
+  //   status.connected ? 'success' : 'error');
+  // }
+
+  // Function originally defined but unused – comment out to fix ESLint warning:
+  // function updateGitHubActivity(response) {
+  //   if (!githubActivity || !response.success) return;
+
+  //   // Clear existing activities
+  //   githubActivity.innerHTML = '';
+
+  //   // Add new activities
+  //   if (response.activities && response.activities.length > 0) {
+  //     response.activities.forEach(activity => {
+  //       addGitHubActivity(activity.text, activity.timestamp);
+  //     });
+  //   } else {
+  //     addGitHubActivity('No recent activity found');
+  //   }
+  // }
 
   function addGitHubActivity(text, timestamp = new Date().toISOString()) {
     if (!githubActivity) return;
@@ -352,22 +359,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function updateGitHubActivity(response) {
-    if (!githubActivity || !response.success) return;
-
-    // Clear existing activities
-    githubActivity.innerHTML = '';
-
-    // Add new activities
-    if (response.activities && response.activities.length > 0) {
-      response.activities.forEach(activity => {
-        addGitHubActivity(activity.text, activity.timestamp);
-      });
-    } else {
-      addGitHubActivity('No recent activity found');
-    }
-  }
-
   // Initial GitHub connection verification
   if (verifyConnectionBtn) {
     // Verify connection when the page loads
@@ -385,27 +376,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Event listeners for saved settings
-  socket.on('config-saved', (data) => {
-    addLogEntry(data.message, 'success');
+  socket.on('config-saved', (_data) => {
+    addLogEntry(_data.message, 'success');
   });
 
-  socket.on('config-error', (data) => {
-    addLogEntry(data.message, 'error');
+  socket.on('config-error', (_data) => {
+    addLogEntry(_data.message, 'error');
   });
 
-  socket.on('github:settings-saved', (data) => {
-    addLogEntry(data.message, 'success');
+  socket.on('github:settings-saved', (_data) => {
+    addLogEntry(_data.message, 'success');
   });
 
-  socket.on('research-settings-saved', (data) => {
-    addLogEntry(data.message, 'success');
+  socket.on('research-settings-saved', (_data) => {
+    addLogEntry(_data.message, 'success');
   });
 
-  socket.on('plugin-status', (data) => {
-    const element = document.getElementById(`${data.plugin}-plugin-status`);
+  socket.on('plugin-status', (_data) => {
+    const element = document.getElementById(`${_data.plugin}-plugin-status`);
     if (element) {
-      element.textContent = data.status;
-      element.className = data.status.toLowerCase() === 'active' ? 'plugin-status active' : 'plugin-status inactive';
+      element.textContent = _data.status;
+      element.className = _data.status.toLowerCase() === 'active' ? 'plugin-status active' : 'plugin-status inactive';
     }
   });
 
@@ -437,11 +428,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Socket events with new namespace pattern
-  socket.on('github:settings-saved', function(data) {
+  socket.on('github:settings-saved', function(_data) {
     addLogEntry('GitHub settings saved successfully!', 'success');
   });
 
-  socket.on('github:settings-error', function(data) {
-    addLogEntry(`Error saving GitHub settings: ${data.error}`, 'error');
+  socket.on('github:settings-error', function(_data) {
+    addLogEntry(`Error saving GitHub settings: ${_data.error}`, 'error');
   });
 });

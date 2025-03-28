@@ -1,4 +1,4 @@
-import { BraveWeb, BraveSearchEngine, provideBraveClient } from '../app/features/brave/service.mjs';
+import { BraveWeb, BraveSearchEngine } from '../app/features/brave/service.mjs';
 import axios from 'axios';
 
 describe('BraveWeb Class', () => {

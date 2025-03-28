@@ -27,7 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Handle responsive behavior
   const handleResize = () => {
-    const windowWidth = window.innerWidth;
     const container = document.querySelector('.container');
     const header = document.querySelector('.header');
     
@@ -78,7 +77,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Handle responsive behavior
   const handleResize = () => {
-    const windowWidth = window.innerWidth;
     const container = document.querySelector('.container');
     const header = document.querySelector('.header');
     
@@ -144,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const helpButtons = document.querySelectorAll('.help-button');
   helpButtons.forEach(button => {
     button.addEventListener('click', function() {
-      alert("Help functionality will be implemented in a future update.");
+      alert('Help functionality will be implemented in a future update.');
     });
   });
 });

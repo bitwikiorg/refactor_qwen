@@ -1,4 +1,3 @@
-
 // File: app/features/memory/service.mjs
 
 import { getLoggerInstance } from '../../services/logger.mjs';
@@ -295,3 +294,21 @@ export { MemoryService as Service, generateUniqueId };
 
 // Export default for direct usage
 export default { Service: MemoryService, generateUniqueId };
+
+export class MemoryManager {
+    constructor() {
+        this.cache = new Map();
+    }
+
+    set(key, value) {
+        this.cache.set(key, value);
+    }
+
+    get(key) {
+        return this.cache.get(key);
+    }
+
+    delete(key) {
+        this.cache.delete(key);
+    }
+}

@@ -1,6 +1,5 @@
 import { Server } from 'socket.io';
 import { createServer } from 'http';
-import express from 'express';
 
 let io = null;
 
