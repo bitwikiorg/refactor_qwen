@@ -14,9 +14,9 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '../..');
 
 // Import core services for verification
-import logger from '../services/logger.js';
-import container from '../services/di-container.js';
-import config from '../services/config.js';
+import logger from '../services/logger.mjs';
+import container from '../services/di-container.mjs';
+import config from '../services/config.mjs';
 
 /**
  * Run system verification tests

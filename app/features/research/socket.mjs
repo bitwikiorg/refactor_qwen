@@ -57,7 +57,9 @@ class TaskRegistry {
 
     removeTask(id) {
         const entry = this.#tasks.get(id);
-        clearTimeout(entry._cleanupTimerRef);
+        if (entry && entry._cleanupTimerRef) {
+            clearTimeout(entry._cleanupTimerRef);
+        }
         return this.#tasks.delete(id);
     }
 }
@@ -71,6 +73,16 @@ export const initSocketHandlers = (namespace, serviceHandlers, diContainer) => {
 
     namespace.on('connection', (socket) => {
         logger.info(`Research session established ${socket.id}`);
+        logger.info(`Research socket connected: ${socket.id}`);
+
+        socket.on('research-query', async (data) => {
+            try {
+                const result = await researchService.executeQuery(data.query, data.options);
+                socket.emit('research-complete', result);
+            } catch (error) {
+                socket.emit('research-error', { message: error.message });
+            }
+        });
 
         function emitError(errorCode, msg, params = {}) {
             params.error = msg || "Unknown";
@@ -79,7 +91,7 @@ export const initSocketHandlers = (namespace, serviceHandlers, diContainer) => {
                     params.code = "EINVQUERY";
                     break;
                 default:
-                    params.code = "ESOCKET" + errorCode.toUpperCase();
+                    params.code = `ESOCKET${errorCode.toUpperCase()}`;
             }
             socket.emit("error", params);
         }
@@ -100,9 +112,9 @@ export const initSocketHandlers = (namespace, serviceHandlers, diContainer) => {
                     depth: Number(data.depth) || 2,
                     breadth: Number(data.breadth) || 2,
                     onUpdate: (pct, msg) => {
-                        registry.updateProgress(data.task_id!, msg, pct);
+                        registry.updateProgress(data.task_id, msg, pct);
                         socket.emit('research-progress', {
-                            id: data.task_id!,
+                            id: data.task_id,
                             value: pct.toFixed(2),
                             message: msg
                         });
@@ -112,17 +124,17 @@ export const initSocketHandlers = (namespace, serviceHandlers, diContainer) => {
                 const result = await researchService.executeQuery({
                     ...options,
                     onAbort: async () => {
-                        registry.updateStatus(data.task_id!, 'aborted');
+                        registry.updateProgress(data.task_id, 'aborted');
                         try { await options.onCancel(); } catch { }
                     },
                     cancelToken: createCancellationSource()
                 });
 
-                registry.updateStatus(data.task_id!, 'completed');
+                registry.updateProgress(data.task_id, 'completed');
                 callback && callback(result);
             } catch (err) {
                 logger.error(`Execution failure ${data.task_id}:`, err.stack || err.message);
-                registry.updateStatus(data.task_id!, 'failed', { reason: getSafeErrorMessage(err) });
+                registry.updateProgress(data.task_id, 'failed', { reason: getSafeErrorMessage(err) });
                 emitError("execution_failed", `Research execution failed (${getSafeErrorMessage(err)})`);
             }
         }
@@ -157,12 +169,12 @@ export const initSocketHandlers = (namespace, serviceHandlers, diContainer) => {
                 const target = req.target_task || req.params?.taskId || req.query?.taskId;
                 if (!target) return reject ? reject({ code: "ENOTASK" }) : undefined;
 
-                const found = registry.findActive(target, (t) => t.userId === socket.user?.id);
+                const found = registry.getTask(target);
 
-                if (found === null) return reject && reject({ code: "ENOTFOUND" });
+                if (!found) return reject && reject({ code: "ENOTFOUND" });
 
                 found.abortRequested = true;
-                await found.service.cancelOperation(target);
+                await researchService.cancelOperation(target);
                 callback && callback({ ...found, status: "cancelled" });
             } catch (cancelErr) {
                 reject && reject(cancelErr);
@@ -175,14 +187,13 @@ export const initSocketHandlers = (namespace, serviceHandlers, diContainer) => {
             next();
         });
 
-        namespace.on('query:start', (rawData, callback) => handleResearchRequest({ ...rawData }, callback);
-    }
+        namespace.on('query:start', (rawData, callback) => handleQueryEvent(rawData, callback));
 
-            namespace.on('/cancel', (req) => cancelActiveSession(req, callback, reject));
-});
+        namespace.on('/cancel', (req, callback, reject) => cancelActiveSession(req, callback, reject));
+    });
 
-logger.info('Research socket handlers initialized');
-return namespace;
-    };
+    logger.info('Research socket handlers initialized');
+    return namespace;
+};
 
 export default { initSocketHandlers };

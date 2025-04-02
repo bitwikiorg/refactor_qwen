@@ -1,9 +1,11 @@
 @injectable()
 export default class AuthGuard {
-   constructor(private userService) { }
+   constructor(userService) {
+      this.userService = userService;
+   }
 
-   public async canAccessRoom(roomId: string): Promise {
-      const currentUser = await userService.getCurrentUser();
+   async canAccessRoom(roomId) {
+      const currentUser = await this.userService.getCurrentUser();
       const targetRm = await Room.findOne({ _id: ObjectId(roomId) });
 
       return targetRm.owner === currentUser.id ||

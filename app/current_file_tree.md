@@ -1,134 +1,179 @@
-# Current File Tree
+# Current File Tree of the App folder in the root
 
 ```plaintext
+README.md
 config/
-  .env
-  .env.example
-  .env.test
-  default.js
-  development.js
-  production.js
-  schema.json
+  config.json
+  config_readme.md
+  provider.mjs
 
 current_file_tree.md
 data/
+  data_readme.md
   memory/
     episodic_memory.md
     long_term_memory.md
+    memory_readme.md
     procedural_memory.md
     semantic_memory.md
     short_term_memory.md
     working_memory.json
 
   prompts/
-    prompt (copy).js
-    prompt copy.js
-    prompt.js
+    chat_prompt.mjs
+    memory_prompt.mjs
+    prompts_readme.md
+    research_prompt.mjs
+    research_prompt2.mjs
 
   research/
     research-your-query-2025-03-06T15-54-37-154Z.md
     research-your-query-is-crazy-2025-03-06T15-33-11-569Z.md
+    research_readme.md
 
   tasks/
     README.md
     example-mission.md
-    mission-research-your-query-depth-2-br-1741268644814.md
     quick-test-mission.md
-    research-your-query-depth-2-breadth-2-2025-03-06T15-26-58-803Z.md
-    research-your-query-depth-2-breadth-2-2025-03-06T15-53-27-174Z.md
-    research-your-query-is-crazy-depth-2-breadth-2-2025-03-06T15-30-06-542Z.md
     research-your-query-is-crazy-depth-2-breadth-2-2025-03-06T15-32-23-329Z.md
-    research-your-query-is-crazy-depth-2-breadth-2-2025-03-06T15-32-23-330Z.md
+    tasks_readme.md
 
 
 features/
   auth/
+    auth.feature.mjs
+    auth_readme.md
     bin/
-      create-account.js
+      create-account.mjs
 
-    index.js
-    repo.js
-    routes.js
-    service.js
-    socket.js
+    index.mjs
+    repo.mjs
+    routes.mjs
+    service.mjs
+    socket.mjs
+    test/
+      authtest.mjs
 
-  brave/
-    index.js
-    routes.js
-    service.js
-    socket.js
+    user.model.mjs
 
   chat/
-    index.js
-    repo.js
-    routes.js
-    service.js
-    socket.js
+    chat.socket.mjs
+    chat_prompt.mjs
+    chat_readme.md
+    index.mjs
+    repo.mjs
+    repositories/
+      message-db-repo.mjs
 
-  github/
-    __tests__/
-      githubIntegration.test.js
+    routes/
+      index.mjs
 
-    index.js
-    repo.js
-    routes.js
-    service.js
-    utils.js
+    routes.mjs
+    security/
+      auth-guard.mjs
 
+    service.mjs
+    socket.mjs
+
+  features_readme.md
   memory/
-    index.js
-    repo.js
-    routes.js
-    service.js
-    socket.js
+    index.mjs
+    memory_readme.md
+    repo.mjs
+    routes.mjs
+    service.mjs
+    socket.mjs
+    types.d.ts
 
   plugins/
-    index.js
+    brave/
+      brave_readme.md
+      index.mjs
+      routes.mjs
+      service.mjs
+      socket.mjs
+
+    github/
+      __tests__/
+        githubIntegration.test.mjs
+
+      github_readme.md
+      index.mjs
+      repo.mjs
+      routes.mjs
+      service.mjs
+      utils.mjs
+
+    index.mjs
+    plugins_readme.md
 
   prompt/
-    index.js
+    index.mjs
+    prompt_readme.md
     repo.mjs
-    routes.ts
+    routes.mjs
     service.mjs
 
   research/
-    index.js
-    repo.js
-    routes.js
-    service.js
-    socket.js
+    index.mjs
+    repo.mjs
+    research_readme.md
+    routes.mjs
+    service.mjs
+    socket.mjs
 
   scheduler/
-    index.cjs
-    repo.js
-    routes.js
-    service.js
-    socket.js
+    index.mjs
+    repo.mjs
+    routes.mjs
+    scheduler_readme.md
+    service.mjs
+    socket.mjs
 
   terminal/
-    index.js
-    repo.js
-    routes.js
-    service.js
-    socket.js
-    terminalAI.js
+    index.mjs
+    repo.mjs
+    routes.mjs
+    service.mjs
+    socket.mjs
+    terminal_readme.md
+
+  token_classifier/
+    index.mjs
+    routes.mjs
+    service.mjs
+    token_classifier_readme.md
+    utils.mjs
+
+  utils/
+    rate-limiter.mjs
 
 
-filetree.js
+filetree.mjs
+index.mjs
 infrastructure/
+  config-loader.d.ts
+  config-loader.js.map
+  config-loader.mjs
   config-loader.ts
-  database.js
-  error-handler.js
-  express.js
-  file-system.js
-  github-api.js
-  health-check.js
-  memcache.ts
+  database.mjs
+  error-handler.mjs
+  express.mjs
+  file-system.mjs
+  github-api.mjs
+  health-check.mjs
+  infrastructure_readme.md
+  memcache.d.ts
+  memcache.js.map
+  memcache.mjs
+  memory-layer.mjs
+  network.mjs
   search/
-    interfaces.js
+    interfaces.mjs
 
-  socket.js
-  venice-api.js
+  socket.mjs
+  venice-api.mjs
+  venice-api.test.mjs
 
 public/
   css/
@@ -156,31 +201,44 @@ public/
     terminal.js
 
 
-readme.md
-routes.js
+routes.mjs
 services/
-  config.js
-  di-container.js
-  env-validator.js
-  logger.js
-  performance-monitor.js
+  di-container.mjs
+  env-validator.mjs
+  git-sync.mjs
+  logger.mjs
+  performance-monitor.mjs
+  scheduler.mjs
 
 tests/
-  api-validation.js
-  integration.js
-  run-validation.js
-  system-verification.js
-  unit/
-    storage.spec.ts
+  api-validation.mjs
+  brave.service.spec.mjs
+  file-system.mjs
+  github-repo-spec.mjs
+  integration.mjs
+  memory.service.spec.mjs
+  run-validation.mjs
+  storage.spec.d.ts
+  storage.spec.js.map
+  storage.spec.mjs
+  storage.spec.ts
+  system-verification.mjs
+  tests_readme.md
 
-
+types.d.ts
 utils/
-  systemStats.js
+  assertions.d.ts
+  assertions.mjs
+  object-utils.d.ts
+  object-utils.mjs
+  systemStats.mjs
+  utils_readme.md
 
 views/
   admin.ejs
   github.ejs
   layouts/
+    layouts_readme.md
     main.hbs
 
   memory.ejs
@@ -189,15 +247,13 @@ views/
     header.ejs
     navbar.ejs
     page-header.ejs
+    partials_readme.md
     socket-io.ejs
 
   research.ejs
   self.ejs
   terminal.ejs
+  views_readme.md
 
 
 ```
-
-# Changelog
-- Fixed duplicate initialization in terminal module (app/public/js/terminal.js) to avoid multiple client connections.
-- Added ESLint setup for debugging syntax errors (run "npm run lint" and "npm run lint:fix").

@@ -1,8 +1,8 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import User from '../../../models/User.js'; // Adjust the path as needed
-import authConfig from '../../../config/authConfig.js'; // Adjust the path as needed
-import logger from '../../../utils/logger.js'; // Adjust the path as needed
+import User from '../../../models/User.mjs'; // Adjust the path as needed
+import authConfig from '../../../config/authConfig.mjs'; // Adjust the path as needed
+import logger from '../../../utils/logger.mjs'; // Adjust the path as needed
 
 const authRouter = express.Router();
 

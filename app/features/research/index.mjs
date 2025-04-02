@@ -1,19 +1,23 @@
+import process from 'process';
+import fs from 'fs';
+import fsPromises from 'fs/promises';
+import express from 'express';
 import { getLoggerInstance } from '../../services/logger.mjs';
 
 const logger = getLoggerInstance({ module: 'Research' });
 
 class ResearchRepository {
   constructor(config) {
-    const storagePath = process.env.RESEARCH_DATA_DIR
-      ? process.env.RESEARCH_DATA_DIR
-      : (() => { throw new Error("RESEARCH_DATA_DIR env var required") })();
+    const storagePath = process.env.RESEARCH_DATA_DIR || (() => {
+      throw new Error("RESEARCH_DATA_DIR env var required");
+    })();
 
     this.storagePath = storagePath;
     this.logger = config.logger || logger;
 
     // Validate path existence
     try {
-      require('fs').accessSync(storagePath);
+      fs.accessSync(storagePath);
     } catch (e) {
       throw new Error(`Invalid research data directory ${storagePath}`);
     }
@@ -21,7 +25,7 @@ class ResearchRepository {
 
   async saveData(id, data) {
     try {
-      await require('fs/promises').writeFile(
+      await fsPromises.writeFile(
         `${this.storagePath}/${id}.json`,
         JSON.stringify(data)
       );
@@ -34,7 +38,7 @@ class ResearchRepository {
 
   async getData(id) {
     try {
-      const data = await require('fs/promises').readFile(
+      const data = await fsPromises.readFile(
         `${this.storagePath}/${id}.json`,
         'utf8'
       );
@@ -46,7 +50,7 @@ class ResearchRepository {
 
   async checkStorageAccess() {
     try {
-      await require('fs/promises').access(this.storagePath);
+      await fsPromises.access(this.storagePath);
       return { status: 'ok' };
     } catch {
       return { status: 'error', message: 'Storage inaccessible' };
@@ -54,7 +58,8 @@ class ResearchRepository {
   }
 }
 
-class ResearchService {
+// Change the default export of ResearchService class to a named export
+export class ResearchService {
   constructor(config = {}) {
     this.config = config;
     this.initialized = false;
@@ -66,7 +71,7 @@ class ResearchService {
     return this;
   }
 
-  async search(query, options = {}) {
+  async search(query) {
     logger.debug(`Searching for: ${query}`);
     // Implementation
     return { results: [], query };
@@ -75,8 +80,8 @@ class ResearchService {
 
 const service = new ResearchService();
 
-// Export the initialization function that was causing the error
-export const initResearchModule = async (app, io, config = {}, container = {}) => {
+// Export the initialization function - removed second parameter
+export const initResearchModule = async (app) => {
   logger.info('Initializing Research module');
 
   // Register routes
@@ -89,13 +94,17 @@ export const initResearchModule = async (app, io, config = {}, container = {}) =
   return service;
 };
 
+// Change the default export of the service object to a named export
+export const researchService = service;
+
+// Keep a single default export for the module initialization
 export default {
   initResearchModule,
-  service
+  service: researchService
 };
 
-
-function registerRoutes(app, options = {}) {
+// Update registerRoutes to accept a simple prefix parameter (default '/api/v2/research')
+function registerRoutes(app, prefix = '/api/v2/research') {
   const router = express.Router();
 
   router.post('/query', (req, res) => {
@@ -109,24 +118,22 @@ function registerRoutes(app, options = {}) {
     });
   });
 
-  app.use(options.prefix || '/api/v2/research', router);
-
-  logger.info(`Registered routes under ${options.prefix}`);
+  app.use(prefix, router);
+  logger.info(`Registered routes under ${prefix}`);
 }
 
 function initSocketHandlers(io = {}) {
   if (!io.of) throw new TypeError("Invalid SocketIO instance");
 
-  const namespace = (io.namespace("/research")) ||
-    io.of("/research");
+  const namespace = io.of("/research");
 
   namespace.on('connection', (socket) => {
-    socket.on('progress:update', (payload) => {
-      // Implement real progress tracking
+    socket.on('progress:update', () => {
+      // Placeholder for progress tracking
     });
 
-    socket.on('query-cancel', (taskId) => {
-      // Implement cancellation logic
+    socket.on('query-cancel', () => {
+      // Placeholder for cancellation logic
     });
   });
 }
@@ -152,9 +159,8 @@ export async function initResearchModuleOriginal(
       },
     });
 
-    registerRoutes(app, {
-      prefix: '/api/v2/research',
-    });
+    // Pass prefix as a simple string
+    registerRoutes(app, '/api/v2/research');
 
     if (socketIo) {
       initSocketHandlers(socketIo);
@@ -177,14 +183,9 @@ export async function initResearchModuleOriginal(
   }
 };
 
+// In install, call initResearchModule with one argument only
 export function install(diRoot, applicationContext) {
-
-  initResearchModule(
-    applicationContext.expressApp,
-    applicationContext.socketIO,
-    applicationContext.config,
-    diRoot.container()
-  )
+  initResearchModule(applicationContext.expressApp)
     .then((modInfo) =>
       diRoot.registerFeature(modInfo.name, {
         version: checkedVersion(modInfo.version), // Assuming checkedVersion is defined elsewhere
@@ -197,29 +198,8 @@ export function install(diRoot, applicationContext) {
     });
 };
 
-// Added to fix syntax error.  Placeholders for actual implementation.
-import express from 'express';
-import { Router } from 'express';
-const apiRoutes = Router();
-
-// Basic search implementation
-async function performSearch(query, config) {
-  return {
-    query,
-    results: [],
-    message: "Search functionality not yet implemented"
-  };
-}
-
-// Placeholder -  needs actual implementation
-const generateUUID = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-  var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-  return v.toString(16);
-});
-
 // Placeholder - needs actual implementation
 const getLoggerFromDI = (diContainer) => diContainer.resolve('logger') || console;
 
-
 // Placeholder - needs actual implementation
-const checkedVersion = (version) => version
+const checkedVersion = (version) => version;

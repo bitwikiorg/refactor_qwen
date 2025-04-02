@@ -1,101 +1,78 @@
-/// ✅ [ ] Add rate limiting decorator/policy around high-frequency endpoints like sendMessage()
-
-
-import { inject } from '../../../di-container';
-import type { IMessage } from './types'; // Define interface contract
-import config from '../../../config';
 import sanitizeHtml from 'sanitize-html';
+import { getLoggerInstance } from '../../services/logger.mjs';
+import VeniceAiService from '../../infrastructure/venice-api.mjs';
+
+const logger = getLoggerInstance({ module: 'ChatService' });
 
 class ChatService {
-  private readonly messageRepo = inject('ChatRepository');
-  private readonly authGuard   = inject('AuthGuard');
+  constructor() {
+    // Initialize veniceService as null to defer its creation
+    this.veniceService = null;
+  }
 
-  constructor(
-    private roomIdGenerator?: () => string,
-    public sanitizerOptions?: SanitizeOptions,
- ) {}
+  /**
+   * Process a user message by generating a response using Venice AI.
+   * @param {string} userMessage - The user's input message.
+   * @param {object} context - Additional context for the chat (e.g., roomId, senderId).
+   * @returns {Promise<string>} - The AI-generated response.
+   */
+  async processChatMessage(userMessage, context = {}) {
+    try {
+      logger.info(`Processing message from sender: ${context.senderId}`);
 
- /**
- * Process incoming message payload through core pipeline
- */
-public async sendMessage(
-   content:string,
-   context:{ roomId:string; senderId:string },
- ):Promise<IMessage> {
+      // Sanitize user input
+      const sanitizedContent = this.sanitize(userMessage);
 
-   const sanitizedContent=this.sanitize(content);
+      // Ensure VeniceAiService is initialized
+      if (!this.veniceService) {
+        this.veniceService = await VeniceAiService.createInstance();
+      }
 
-   const newMsg ={
-     id:this.generateUUID(),
-     content:sanitizedContent,
-     senderId:context.senderId,
-     timestamp:new Date(),
-     roomId:context.roomId,
-   };
+      // Prepare payload
+      const messages = [
+        { role: 'system', content: 'Default system prompt' },
+        { role: 'user', content: sanitizedContent }
+      ];
+      const payload = {
+        model: 'llama-3.3-70b',
+        messages,
+        venice_parameters: {
+          enable_web_search: 'auto',
+          include_venice_system_prompt: false,
+          character_slug: 'archon-01v',
+        },
+        temperature: 0.7,
+        top_k: 40,
+        top_p: 0.9,
+        min_p: 0.05,
+      };
 
-   await this.messageRepo.save(newMsg);
+      // Send payload to Venice AI
+      const response = await this.veniceService.standardChat(payload);
+      const aiResponse = response.choices[0]?.message?.content || 'No response from Venice AI.';
 
-   return newMsg;
- }
-
- /**
- * Retrieve room history based on permissions
- */
-public async getRoomHistory(roomId:string):Promise {
-    const authorized=await this.authGuard.canAccessRoom(roomId);
-
-    if(!authorized){
-      throw new Error("Unauthorized");
+      logger.info('Chat processed successfully', { userMessage, aiResponse });
+      return aiResponse;
+    } catch (error) {
+      logger.error('Error processing chat message:', { error: error.message });
+      throw new Error('Failed to process chat message.');
     }
+  }
 
-    return await this.messageRepo.getMessagesByRoom(roomId);
- }
-
- /**
- * Create new chat room entity & persist it
- */
-public async createRoom(name?:string):Promise {
-    const id=this.roomGenerator?.() || Date.now().toString();
-
-    const created=await this.messageRepo.createRoom({
-      id:id,
-      name:name||"Untitled",
-      createdAt:new Date(),
-      ownerId:this.authGuard.currentUserId!,
- });
-
-return created;
+  /**
+   * Sanitize user input to prevent XSS attacks.
+   */
+  sanitize(input) {
+    try {
+      return sanitizeHtml(input);
+    } catch (e) {
+      logger.error('Malformed HTML detected');
+      throw new Error('Malformed HTML detected');
+    }
+  }
 }
 
-// --- PRIVATE METHODS ---
-private generateUUID():string{
- return crypto.randomUUID(); // Requires node v17+
-}
-
-private sanitize(input:string):string{
- try{
- return sanitizeHtml(input,{
- ...config.sanitizeDefaults!,
- ...(this.sanitizerOptions || {}),
- });
- }catch(e){
- throw new InvalidInputError("Malformed HTML detected");
- }
-}
-}
-
+// Export the ChatService class and the processChatMessage function
+const chatService = new ChatService();
+export const processChatMessage = chatService.processChatMessage.bind(chatService);
 export default ChatService;
-
-interface IRoom extends Document {
- id:String;
- name:String;
- ownerId:String;
- members:Array;
-}
-
-interface IMessage extends Document {
- senderID:String;
- content:String;
- timestamp:Number|Date;
- roomId:String|ObjectID; // Depends on DB schema choice...
-}

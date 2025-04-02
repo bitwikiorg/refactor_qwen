@@ -1,7 +1,5 @@
-// app/features/research/routes.mjs
 import { Router } from 'express';
-import type { RequestHandler } from 'express-serve-static-core';
-import { StatusCodes } from 'http-status-codes';
+const { StatusCodes } = require('http-status-codes');
 
 // Dependency Injection Setup
 const inject = require('../../services/di-container').inject;
@@ -31,13 +29,16 @@ router.post(
           ) || undefined,
       });
 
+      const memoryLayer = memorySystem.getLayer('semantic');
+      if (!memoryLayer) {
+        throw new Error("Missing semantic layer");
+      }
+
       const taskId = await researchService.startTask({
         type: 'DEEP',
         params: {
           ...queryConfig,
-          memoryLayerId:
-            memorySystem.getLayer('semantic')?.id ||
-            throw new Error("Missing semantic layer"),
+          memoryLayerId: memoryLayer.id,
         },
       });
 
@@ -55,7 +56,7 @@ router.get(
   async (req, res) => {
     try {
       const contentBuffer = await inject('researchRepository')
-        .load(req.params.fileId)
+        .load(req.params.fileId);
 
       return res.type('.md')
         .attachment(req.params.fileId)
@@ -79,31 +80,28 @@ router.get(
     }
   });
 
-export function validateResearchQuery(): RequestHandler[] {
-
+// Validation Functions
+export function validateResearchQuery() {
   return [
     // Implement validation logic using joi/express-validator etc.
   ];
 }
 
-export function validateFileRequest(): RequestHandler[] {
-
+export function validateFileRequest() {
   return [
     // Validate filename against regex pattern /^[a-z0-9\-\.]+$/i etc.
   ];
 }
 
-export function validateTaskStatusRequest(): () => RequestHandler {
-
+export function validateTaskStatusRequest() {
   return () => ({
     // Implement task ID format validation middleware here
   });
 }
 
-function handleAPIError(res): ((error: any) => void) {
-
+// Error Handling Function
+function handleAPIError(res) {
   return err => {
-
     let statusCode = 500;
     let errorMessage = 'INTERNAL_SERVER_ERROR';
 
@@ -113,7 +111,9 @@ function handleAPIError(res): ((error: any) => void) {
         errorMessage = err.message;
         break;
       case err.code === 'ENOENT':
-        [statusCode, 'NOT_FOUND'] = [404, 'FILE_NOT_FOUND'];
+        statusCode = 404;
+        errorMessage = 'FILE_NOT_FOUND';
+        break;
     }
 
     logger.error(errorMessage, err.stack);

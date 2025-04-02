@@ -1,4 +1,4 @@
-import { classifyToken } from '../token_classifier/token_classifier.js';
+import { classifyToken } from '../token_classifier/token_classifier.mjs';
 
 // ...existing code...
 

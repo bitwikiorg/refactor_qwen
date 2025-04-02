@@ -2,6 +2,8 @@
  * Logger module - Production-ready logging utilities
  */
 
+const _process = globalThis.process || { env: {}, cwd: () => '/' };
+
 import { inspect } from 'util';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import path from 'path';
@@ -44,7 +46,7 @@ class ProductionReadyLogger {
 
     this.configure({
       initialSettings:
-        process.env.NODE_ENV === 'development'
+        _process.env.NODE_ENV === 'development'
           ? { enabled: true }
           : undefined,
 
@@ -82,7 +84,10 @@ class ProductionReadyLogger {
 
   error(message, error = null) {
     if (this.shouldLog('error')) {
-      console.error(`[ERROR][${this.module}] ${message}`, error);
+      console.error(`[ERROR][${this.module}] ${message}`, {
+        error: error?.message,
+        stack: error?.stack,
+      });
     }
   }
 
@@ -93,7 +98,7 @@ class ProductionReadyLogger {
   }
 
   debug(message, meta = {}) {
-    if (this.shouldLog('debug')) {
+    if (_process.env.DEBUG === 'true') {
       console.debug(`[DEBUG][${this.module}] ${message}`, meta);
     }
   }
@@ -103,7 +108,7 @@ class ProductionReadyLogger {
       console.error(`[FATAL][${this.module}]`, ...args);
       
       // Ensure logs directory exists
-      const logsDir = path.join(process.cwd(), 'logs');
+      const logsDir = path.join(_process.cwd(), 'logs');
       if (!existsSync(logsDir)) {
         mkdirSync(logsDir, { recursive: true });
       }
@@ -149,10 +154,10 @@ class ProductionReadyLogger {
     ];
 
     try {
-      global.console.log(formattedMessageParts.join(' | '));
+      globalThis.console.log(formattedMessageParts.join(' | '));
       
       // Ensure logs directory exists
-      const logsDir = path.join(process.cwd(), 'logs');
+      const logsDir = path.join(_process.cwd(), 'logs');
       if (!existsSync(logsDir)) {
         mkdirSync(logsDir, { recursive: true });
       }
@@ -226,7 +231,7 @@ export function getLoggerInstance(options = {}) {
 // Create default logger instance
 const defaultLogger = getLoggerInstance({ 
   module: 'App', 
-  currentLogLevel: process.env.LOG_LEVEL || 'info' 
+  currentLogLevel: _process.env.LOG_LEVEL || 'info' 
 });
 
 /**
@@ -259,3 +264,6 @@ export default defaultLogger;
 
 // Export the ProductionReadyLogger class for external use
 export { ProductionReadyLogger };
+
+// NEW: Provide createLogger named export for compatibility
+export const createLogger = (moduleName) => getLoggerInstance({ module: moduleName });

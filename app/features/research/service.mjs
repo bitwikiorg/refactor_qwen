@@ -1,23 +1,21 @@
 // File: app/features/research/service.mjs
 
-import { getLoggerInstance } from '../../services/logger.mjs';
 import { Service as MemoryService } from '../memory/service.mjs';
 import GitHubService from '../plugins/github/service.mjs';
+import VeniceAiService from '../../infrastructure/venice-api.mjs';
+import { createLogger } from '../../services/logger.mjs';
 
-const logger = getLoggerInstance({ module: 'ResearchService' });
+const logger = createLogger('research-service');
 
 class ResearchEngine {
   constructor(config = {}, socketNamespace = null) {
     this.config = {
       maxResults: config.maxResults || 10,
       timeout: config.timeout || 30000,
-      ...config
+      ...config,
     };
-
-    this.searchProviders = [];
     this.socket = socketNamespace;
-
-    logger.info('Research engine initialized');
+    this.veniceService = new VeniceAiService();
   }
 
   injectSearchProviders(providers = []) {
@@ -31,48 +29,18 @@ class ResearchEngine {
   }
 
   async executeResearch(query, options = {}) {
-    if (!query) {
-      throw new Error('Research query cannot be empty');
-    }
-
-    logger.info(`Executing research: "${query}"`);
-    this._emitStatus('started', { query });
-
     try {
-      // Execute search across all providers
-      const results = await this._executeSearchAcrossProviders(query, options);
-
-      // Process and organize results
-      const processedResults = this._processResults(results, query);
-
-      this._emitStatus('completed', { 
-        query, 
-        resultsCount: processedResults.length,
-        timestamp: new Date().toISOString()
+      const response = await this.veniceService.standardChat(query, {
+        venice_parameters: { include_venice_system_prompt: false },
+        max_completion_tokens: options.maxCompletionTokens || 300,
+        temperature: options.temperature || 0.7,
       });
 
-      const researchData = {
-        query,
-        timestamp: new Date().toISOString(),
-        results: processedResults
-      };
-
-      // Save to memory if specified
-      if (options.storeInMemory) {
-        await this.saveToMemory(researchData);
-      }
-
-      // Commit to repo if specified
-      if (options.commitToRepo) {
-        await this.commitToRepo(researchData, options.repoOptions);
-      }
-
-
-      return researchData;
+      logger.info('Research executed successfully', { query });
+      return response;
     } catch (error) {
-      logger.error(`Research failed: ${error.message}`);
-      this._emitStatus('failed', { query, error: error.message });
-      throw error;
+      logger.error('Error executing research', { error: error.message });
+      throw new Error('Failed to execute research.');
     }
   }
 
@@ -163,8 +131,8 @@ class ResearchEngine {
     }
   }
 
-  _processResults(providerResults, query) {
-    // Flatten results from all providers
+  // Update method signature to remove the unused 'query' parameter
+  _processResults(providerResults) {
     let allResults = [];
 
     for (const providerResult of providerResults) {
@@ -173,15 +141,11 @@ class ResearchEngine {
           ...result,
           provider: providerResult.provider
         }));
-
         allResults = allResults.concat(processedResults);
       }
     }
 
-    // Deduplicate results based on URL or content hash
     const uniqueResults = this._deduplicateResults(allResults);
-
-    // Sort by relevance if available
     const sortedResults = uniqueResults.sort((a, b) => {
       if (a.relevance && b.relevance) {
         return b.relevance - a.relevance;
@@ -189,7 +153,6 @@ class ResearchEngine {
       return 0;
     });
 
-    // Limit results
     return sortedResults.slice(0, this.config.maxResults);
   }
 
@@ -211,4 +174,19 @@ class ResearchEngine {
 }
 
 export { ResearchEngine as Engine };
-export default { Engine: ResearchEngine };
+
+export async function processResearchQuery(query) {
+  try {
+    const veniceService = await VeniceAiService.createInstance();
+    const response = await veniceService.standardChat(query, {
+      messages: [{ role: 'user', content: query }],
+    });
+
+    return response.choices[0].message.content;
+  } catch (error) {
+    logger.error('Error in Venice API research query', { error: error.message });
+    throw new Error('Failed to process research query.');
+  }
+}
+
+export default { Engine: ResearchEngine, processResearchQuery };

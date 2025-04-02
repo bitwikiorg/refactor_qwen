@@ -1,127 +1,71 @@
-// File name remains app/features/brave/index.js
-
 import axios from "axios";
 import express from "express";
+import { BraveService } from "./service.mjs";
+import logger from "../../../services/logger.mjs"; // Corrected import path and default import
 
-const BRAVE_API_URL = "https://api.search.brave.com/res/v1/web/search";
 const MAX_RESULTS_PER_PAGE = 50;
 
-/**
- * Initialize Brave feature integration
- * @param {express.Application} app - Express application instance
- * @param {*} io - Socket.IO server instance
- */
-function init(app, io) {
-  console.log("Initializing Brave Search Module");
+export default {
+  init(app, io) {
+    logger.info("Initializing Brave module");
 
-  // ROUTES SETUP
-  const router = express.Router();
-
-  /**
-   * Handle web searches via HTTP endpoint
-   */
-  router.get("/search", async (req, res) => {
+    const service = new BraveService();
     try {
-      const query = req.query.q;
-      if (!query || typeof query !== "string") {
-        return res
-          .status(400)
-          .json({ error: "Invalid or missing query parameter" });
-      }
-
-      // Validate pagination options
-      let count = Math.min(
-        parseInt(req.query.count || 10),
-        MAX_RESULTS_PER_PAGE,
-      );
-      let offset = Math.max(parseInt(req.query.offset || 0), 0);
-
-      const results = await performSearch(query.trim(), { count });
-
-      res.json(results);
+      service.initialize();
     } catch (err) {
-      handleSearchError(res, err);
+      logger.error("Failed to initialize Brave service:", { message: err.message, stack: err.stack });
+      throw err; // Propagate error
     }
-  });
 
-  app.use("/api/v2/brave", router); // Versioned path
+    const router = express.Router();
 
-  // SOCKET INTEGRATION
-  if (io) {
-    const braveNamespace = io.of("/core-brave");
-
-    braveNamespace.on("connection", (socket) => {
-      console.log(`Brave client connected [${socket.id}]`);
-
-      socket.on("search-request", async (data, callback) => {
-        try {
-          validateSearchParams(data); // Custom validation middleware
-
-          const results = await performSearch(
-            data.query.trim(),
-            data.options || {},
-          );
-
-          callback({ success: true, data: results });
-        } catch (err) {
-          callback({ success: false, error: { message: "API Error" } });
+    router.get("/search", async (req, res) => {
+      try {
+        const query = req.query.q;
+        if (!query || typeof query !== "string") {
+          return res.status(400).json({ error: "Invalid or missing query parameter" });
         }
+        const count = Math.min(parseInt(req.query.count || 10, 10), MAX_RESULTS_PER_PAGE);
+        // Use service.execute with query and pageSize (offset not supported so omitted)
+        const results = await service.execute({ query: query.trim(), pageSize: count });
+        res.json(results);
+      } catch (err) {
+        logger.error(`Search error: ${err.message}`, { stack: err.stack });
+        res.status(500).json({ error: "Internal server error" });
+      }
+    });
+
+    router.get("/status", (req, res) => {
+      res.json(service.getStatus());
+    });
+
+    app.use("/api/v2/brave", router);
+
+    if (io) {
+      const braveNamespace = io.of("/core-brave");
+      braveNamespace.on("connection", (socket) => {
+        logger.info(`Brave client connected [${socket.id}]`);
+
+        socket.on("search-request", async (data, callback) => {
+          try {
+            const results = await performSearch(data.query.trim(), data.options || {});
+            callback({ success: true, data: results });
+          } catch (err) {
+            logger.error(`Socket search error: ${err.message}`, { stack: err.stack });
+            callback({ success: false, error: { message: "API Error" } });
+          }
+        });
+
+        socket.on("disconnect", () => {
+          logger.info(`Brave client disconnected [${socket.id}]`);
+        });
+
+        socket.on("error", (error) => {
+          logger.error(`Socket error on Brave namespace: ${error.message}`, { stack: error.stack });
+        });
       });
+    }
 
-      socket.on("disconnect", () => {
-        console.log(`Brave client disconnected [${socket.id}]`);
-      });
-    });
-  }
-}
-
-/**
- * Validate incoming request parameters
- */
-function validateSearchParams(params) {
-  if (!params?.query?.trim()) {
-    throw new Error("Missing valid query parameter");
-  }
-}
-
-/**
- * Perform actual external service call with safety measures
- */
-async function performSearch(query, options = {}) {
-  try {
-    let finalOptions = {
-      params: {
-        q: encodeURIComponent(query),
-        num: Math.min(options.count ?? 10, MAX_RESULTS_PER_PAGE),
-        start: options.offset ?? undefined,
-      },
-      timeout: 8_642,
-    };
-
-    const response = await axios.get(BRAVE_API_URL, {
-      ...finalOptions,
-      headers: {
-        Accept: "application/json",
-        ...(process.env.BRAVE_SEARCH_KEY
-          ? { "X-API-Key": process.env.BRAVE_SEARCH_KEY }
-          : {}),
-      },
-    });
-
-    return response.data.items.map((item) => {
-      return {
-        title: item.title,
-        link: item.url,
-        snippet: item.contentSnippet,
-        source: "Brave",
-      };
-    });
-  } catch (error) {
-    throw new Error(
-      `API Request Failed (${error.response?.status}): ${error.message}`,
-    );
-  }
-}
-
-// Export initialization method explicitly
-export { init };
+    return service;
+  },
+};

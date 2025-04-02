@@ -74,7 +74,7 @@ router.get(
      }
 );
 
-function getRolePermissions(roleTypeId:number):Record<string,string[]>{
+function getRolePermissions(roleTypeId) {
    // Assume roles come back populated when verifying JWT token   
    switch(roleTypeId){
        case 1 /* Admin */:

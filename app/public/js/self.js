@@ -552,7 +552,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Placeholder functions for GitHub interaction (replace with actual implementation)
   function syncTasksWithGitHub() {
-    alert('GitHub synchronization not yet implemented.');
+    socket.emit('self:sync-tasks', {}, (response) => {
+      if (response.success) {
+        addActivity('Tasks synchronized with GitHub');
+      } else {
+        alert(`Error synchronizing tasks: ${response.error || 'Unknown error'}`);
+      }
+    });
   }
 
   function pushTasksToGitHub() {

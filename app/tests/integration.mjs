@@ -5,15 +5,15 @@
  * Verifies that the refactored components work together correctly
  */
 
-import { createApp } from '../infrastructure/express.js';
-import { socketService } from '../infrastructure/socket.js';
-import config from '../services/config.js';
-import logger from '../services/logger.js';
+import { createApp } from '../infrastructure/express.mjs';
+import { socketService } from '../infrastructure/socket.mjs';
+import config from '../services/config.mjs';
+import logger from '../services/logger.mjs';
 
 // Import feature modules
-import terminalFeature from '../features/terminal/index.js';
-import memoryFeature from '../features/memory/index.js';
-import researchFeature from '../features/research/index.js';
+import terminalFeature from '../features/terminal/index.mjs';
+import memoryFeature from '../features/memory/index.mjs';
+import researchFeature from '../features/research/index.mjs';
 
 async function testIntegration() {
   try {

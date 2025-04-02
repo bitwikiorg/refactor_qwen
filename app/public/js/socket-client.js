@@ -10,7 +10,7 @@
   function loadSocketIO() {
     try {
       const script = document.createElement('script');
-      script.src = 'https://cdn.socket.io/4.6.0/socket.io.min.js';
+      script.src = 'https://cdn.socket.io/4.6.0/socket.io.min.mjs';
       script.integrity = 'sha384-c79GN5VsunZvi+Q/WObgk2in0CbZsHnjEqvFxC5DxHn9lTfNce2WW6h2pH6u/kF+';
       script.crossOrigin = 'anonymous';
       

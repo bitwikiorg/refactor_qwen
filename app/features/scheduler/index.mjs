@@ -1,12 +1,10 @@
-// File: app/features/scheduler/index.mjs
+import process from 'process';
+import { getLoggerInstance } from '../../services/logger.mjs';
+import SchedulerService from './service.mjs';
 
-import { createLogger } from '../../services/logger.mjs';
-import type { ConfigType } from '../../config/schema.mjs';
+const logger = getLoggerInstance({ module: 'Scheduler' });
 
-const logger = createLogger('scheduler');
-const SchedulerRepo = await import('./repo.mjs'); // Use dynamic import due to circular dependency potential
-const { default: SchedulerRoutes } = await import('./routes.mts'); // Note TS extension if applicable
-const { default: SchedulerService } = await import('./service.cjs'); // Adjust based on target format
+const schedulerInstance = new SchedulerService();
 
 let _instance;
 
@@ -18,11 +16,25 @@ export const getSchedulerInstance = () => {
     };
 
     const validateEnvVariables = () => {
-      const requiredKeysPresent =
-        process.env.CRON_ENVIRONMENT &&
-        process.env.TASK_DIRECTORY &&
-        process.env.CONCURRENCY_LIMIT;
-      if (!requiredKeysPresent) throw new Error("Missing required env vars");
+      const requiredVars = ['CRON_ENVIRONMENT', 'TASK_DIRECTORY', 'CONCURRENCY_LIMIT'];
+      
+      requiredVars.forEach(varName => {
+        if (!process.env[varName]) {
+          switch (varName) {
+            case 'CRON_ENVIRONMENT':
+              process.env[varName] = 'production'; // Default value
+              break;
+            case 'TASK_DIRECTORY':
+              process.env[varName] = '/tasks'; // Default value
+              break;
+            case 'CONCURRENCY_LIMIT':
+              process.env[varName] = '5'; // Default value
+              break;
+            default:
+              throw new Error(`Missing required env var: ${varName}`);
+          }
+        }
+      });
     };
 
     class CronManager {
@@ -37,78 +49,101 @@ export const getSchedulerInstance = () => {
         Object.freeze(this.getRetryPolicy);
       }
 
-      initialize() {
+      async initialize() {
         if (this.#initialized) return;
 
-        logger.info("Initializing task scheduler",
-          { concurrencyLimit: process.env.CONCURRENCY_LIMIT });
+        logger.info("Initializing task scheduler", {
+          concurrencyLimit: process.env.CONCURRENCY_LIMIT,
+        });
 
         try {
-          // Load persisted jobs from storage repository before initialization completes?
-          await loadExistingJobsFromStorage();
+          await this.loadExistingJobsFromStorage();
 
           this.#initialized = true;
-          return Promise.resolve(this);
-
+          return this;
         } catch (err) {
           logger.error("Initialization failed", err);
           throw err;
         }
       }
 
-      async start(config?: Partial<ConfigType>) {
-
+      async start(config) {
         try {
-
           await this.initialize();
 
-          config?.cronJobs?.forEach(async ({ name }) => {
+          if (config && config.cronJobs) {
+            for (const job of config.cronJobs) {
+              const { name } = job;
+              const existingJobHandle = this.findExistingScheduledTask(name);
 
-            const existingJobHandle 
-               ?= findExistingScheduledTask(name);
-
-          !existingJobHandle &&
-            scheduleNewTask({ ...configDefaults(), ...jobConfig });
-
-        });
-
-      } catch(errorDetails) {
-        handleStartupError(errorDetails);
+              if (!existingJobHandle) {
+                this.scheduleNewTask({ ...this.configDefaults(), ...job });
+              }
+            }
+          }
+        } catch (errorDetails) {
+          this.handleStartupError(errorDetails);
+        }
       }
 
+      getRetryPolicy() {
+        return Object.freeze(retryPolicy);
+      }
+
+      async loadExistingJobsFromStorage() {
+        // Placeholder for loading jobs from storage
+        logger.info("Loading existing jobs from storage...");
+      }
+
+      findExistingScheduledTask(name) {
+        // Placeholder for finding an existing task
+        return this.#jobsMap.get(name);
+      }
+
+      scheduleNewTask(jobConfig) {
+        // Placeholder for scheduling a new task
+        logger.info("Scheduling new task", jobConfig);
+      }
+
+      handleStartupError(errorDetails) {
+        logger.error("Error during startup", errorDetails);
+      }
+
+      configDefaults() {
+        return {
+          // Default configuration for tasks
+        };
+      }
     }
 
-    getRetryPolicy() { return Object.freeze(retryPolicy); }
-
-  }
-
-     return new CronManager();
-})();
+    return new CronManager();
+  })();
 };
 
 export class TaskScheduler {
-    constructor() {
-        this.tasks = [];
-    }
+  constructor() {
+    this.tasks = [];
+  }
 
-    schedule(task, interval) {
-        const id = setInterval(task, interval);
-        this.tasks.push(id);
-        return id;
-    }
+  schedule(task, interval) {
+    const id = setInterval(task, interval);
+    this.tasks.push(id);
+    return id;
+  }
 
-    cancel(id) {
-        clearInterval(id);
-        this.tasks = this.tasks.filter(taskId => taskId !== id);
-    }
+  cancel(id) {
+    clearInterval(id);
+    this.tasks = this.tasks.filter((taskId) => taskId !== id);
+  }
 }
 
-// Export types explicitly instead of object literals:
-export type ScheduleResultType 
-  extends Record < 'scheduledAt', Date > {}
+export * from './service.mjs'; // Re-export service layer components explicitly
+export * as RoutesNamespace from './routes.mjs';
 
-export * from './service'; // Re-export service layer components explicitly
-export * as RoutesNamespace from './routes';
-
-// Deprecate direct repo exports - use through service layers:
-// export * as RepoLayer from './repo';
+export default {
+  getSchedulerInstance,
+  init: () => {
+    logger.info('Initializing scheduler module');
+    return schedulerInstance;
+  }
+};

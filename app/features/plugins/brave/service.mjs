@@ -1,7 +1,6 @@
-// app/features/brave/service.mjs
-
+import process from 'process';
 import axios from 'axios';
-import RateLimiter from '../../utils/rate-limiter';
+import RateLimiter from '../../utils/rate-limiter.mjs';
 
 class BraveWeb {
   constructor() {
@@ -67,50 +66,18 @@ class BraveWeb {
   }
 }
 
-class BraveSearchEngine {
-  constructor({ apiKey }) {
-    if (!apiKey?.trim()) throw new Error('API key is required');
-
-    Object.assign(this, {
-      apiKey,
-      baseUrl: 'https://api.bravesearch.com/v1',
-    });
-
-    Object.freeze(this.baseUrl);
-  }
-
-  async execute(topic, options = { depth: 2, breadth: 3 }) {
-    const results = [];
-
-    for (let d = options.depth; d > 0; d--) {
-      const batchResults = [];
-
-      await Promise.all(
-        Array(options.breadth)
-          .fill()
-          .map(async () => {
-            try {
-              const res = await fetch(`${this.baseUrl}/web?query=${encodeURIComponent(topic)}&key=${this.apiKey}`);
-              const data = await res.json();
-              batchResults.push(data);
-            } catch (err) {
-              console.error('Fetch error:', err);
-            }
-          })
-      );
-
-      results.push(...batchResults);
-
-      await new Promise(resolve => setTimeout(resolve, 500)); // Sleep for 500ms between depth layers
-    }
-
-    return results.map(r => r.content || 'No result').filter(Boolean);
-  }
-}
-
 export function provideBraveClient() {
   return {
     type: 'web',
     instance: new BraveWeb(),
   };
+}
+
+export class BraveService {
+  initialize() {
+    import('../../../services/logger.mjs')
+      .then(({ getLoggerInstance }) => getLoggerInstance({ module: 'BraveService' }))
+      .then(log => log.info('BraveService initialized'));
+    return this;
+  }
 }

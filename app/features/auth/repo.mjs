@@ -72,7 +72,7 @@ export async function registerNewUser({
     sanitizedUsername, // Must already be sanitized!
     hashedPassword,   // Should come pre-hashed!
     requestedRole = 'user' // Defaults safely unless elevated perms explicitly requested  
-}): Promise<AuthenticatedUser> {
+}) {
     // Input validations upfront
     if (sanitizedUsername.length < 5) {
         throw new Error("Username must contain at least 5 characters");

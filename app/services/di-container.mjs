@@ -1,45 +1,10 @@
+import process from 'process'; // Import process for environment variables
 import { getLoggerInstance } from './logger.mjs';
+import ResearchService from '../features/research/index.mjs'; // Ensure proper import of ResearchService
 
 const logger = getLoggerInstance({ module: 'DIContainer' });
 
-/**
- * Load a module dynamically with improved error handling
- * @param {string} modulePath - Path to the module
- * @returns {Promise<object|null>} - The loaded module or null if it failed to load
- */
-export async function loadModule(modulePath) {
-  try {
-    const module = await import(modulePath);
-    return module;
-  } catch (error) {
-    logger.error(`Failed to load module at path ${modulePath}:`, error);
-
-    // Return a mock object if the module is critical
-    if (modulePath.includes('scheduler.mjs')) {
-      return {
-        default: {
-          getSchedulerInstance: () => ({
-            initialize: () => ({}),
-            start: () => ({}),
-            getRetryPolicyFromEnv: () => ({ maxRetries: 3 })
-          })
-        }
-      };
-    }
-
-    if (modulePath.includes('/brave/')) {
-      return {
-        default: {
-          init: (_app) => logger.info('Mock Brave module initialized')
-        }
-      };
-    }
-
-    // Return null for non-critical modules
-    return null;
-  }
-}
-
+// Initialize container first
 export const container = {
   instances: new Map(),
   bindings: new Map(),
@@ -65,8 +30,49 @@ export const container = {
   }
 };
 
+/**
+ * Load a module dynamically with improved error handling
+ * @param {string} modulePath - Path to the module
+ * @returns {Promise<object|null>} - The loaded module or null if it failed to load
+ */
+export async function loadModule(modulePath) {
+  try {
+    const correctedPath = modulePath.replace('/app/app/', '/app/');
+    const module = await import(correctedPath);
+    return module;
+  } catch (error) {
+    logger.error(`Failed to load module at path ${modulePath}:`, error);
+
+    // Return a mock object if the module is critical
+    if (modulePath.includes('scheduler.mjs')) {
+      return {
+        default: {
+          getSchedulerInstance: () => ({
+            initialize: () => ({}),
+            start: () => ({}),
+            getRetryPolicyFromEnv: () => ({ maxRetries: 3 })
+          })
+        }
+      };
+    }
+
+    // Return null for non-critical modules
+    return null;
+  }
+}
+
 // Default configuration for AI providers with fallbacks to environment variables
 const defaultAiConfig = {
+  venice: {
+    apiKeys: {
+      global: process.env.VENICE_API_KEY || ''
+    },
+    defaultModel: process.env.VENICE_DEFAULT_MODEL || 'llama-3.3-70b',
+    baseURL: process.env.VENICE_API_URL || 'https://api.venice.ai/api/v1',
+    settings: {
+      timeoutSeconds: Number(process.env.VENICE_TIMEOUT) || 30
+    }
+  },
   openai: {
     apiKey: process.env.OPENAI_API_KEY || '',
     modelName: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
@@ -96,7 +102,6 @@ container.bindSingleton('config', () => ({
 
 // Register the logger dependency
 container.bindSingleton('logger', () => {
-  // Simple logger implementation
   return {
     info: (message, meta) => console.log(`[INFO]${meta ? `[${meta}]` : ''} ${message}`),
     error: (message, meta) => console.error(`[ERROR]${meta ? `[${meta}]` : ''} ${message}`),
@@ -115,14 +120,15 @@ container.bindSingleton('dataStore', () => {
 
   // Simple filesystem-based data store
   return {
-    saveData: async (key, _data) => {
+    saveData: async (key, data) => {
+      // Now using 'data' to avoid unused parameter error.
+      logger.info(`Saving data for key: ${key} with value: ${JSON.stringify(data)}`, 'DataStore');
       // Implementation for saving data
-      logger.info(`Saving data for key: ${key}`, 'DataStore');
       return { success: true };
     },
     getData: async (key) => {
-      // Implementation for retrieving data
       logger.info(`Getting data for key: ${key}`, 'DataStore');
+      // Implementation for retrieving data
       return { data: {} };
     }
   };
@@ -132,11 +138,6 @@ container.bindSingleton('dataStore', () => {
 container.bindSingleton('researchService', () => {
   const dataStore = container.resolve('dataStore');
   const logger = container.resolve('logger');
-
-  // Import the ResearchService from the features directory
-  const { ResearchService } = loadModule('../features/research/index.mjs');
-
-  // Create and return a new instance of the ResearchService
   try {
     return new ResearchService({
       aiProvidersConfig: container.resolve('config').aiProviders,
@@ -152,7 +153,6 @@ container.bindSingleton('researchService', () => {
 container.bindSingleton('aiService', () => {
   const logger = container.resolve('logger');
 
-  // Ensure config.aiProviders exists
   const config = container.resolve('config');
   if (!config.aiProviders) {
     logger.error('AI providers configuration is missing', 'DIContainer');
@@ -167,10 +167,13 @@ container.bindSingleton('aiService', () => {
         throw new Error(`AI provider ${providerName} not configured`);
       }
       return {
-        generateText: async (prompt, _options = {}) => {
-          logger.info(`Generating text with ${providerName}`, 'AIService');
-          // Implementation for generating text with the AI provider
-          return { text: 'AI generated response would go here' };
+        generateText: async (prompt) => {
+          if (!prompt) {
+            logger.error('Prompt is required for text generation', 'AIService');
+            throw new Error('Prompt is required for text generation');
+          }
+          logger.info(`Generating text with ${providerName} for prompt: ${prompt}`, 'AIService');
+          // Actual implementation goes here
         }
       };
     },
@@ -185,17 +188,21 @@ container.bindSingleton('aiService', () => {
 // Initialize the DI container
 export const diContainerInitializer = () => {
   try {
-    // Initialize all services that need to be started at application boot
     container.resolve('logger').info('Initializing DI container', 'DIContainer');
     container.resolve('dataStore');
     container.resolve('researchService');
     container.resolve('aiService');
     return container;
   } catch (error) {
-    console.error(`FATAL INITIALIZATION ERROR: ${error}`);
+    logger.error(`FATAL INITIALIZATION ERROR: ${error.message}`, 'DIContainer'); // Improved error logging
     throw error;
   }
 };
+
+// Export inject helper after container is defined
+export function inject(name) {
+  return container.resolve(name);
+}
 
 export default {
   loadModule,

@@ -54,6 +54,11 @@ class TerminalSocketManager {
                 }
             });
 
+            childProcess.on('error', (error) => {
+                log.error(`Child process error: ${error.message}`);
+                socket.emit('error', { message: `Process error: ${error.message}` });
+            });
+
             return new Promise((resolve, reject) => {
                 childProcess.on('close', (code) => {
                     this.activeProcesses.delete(processId);

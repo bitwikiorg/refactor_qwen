@@ -1,0 +1,93 @@
+{
+  "appInfo": {
+    "name": "COREAI Research System",
+    "version": "2.0.0",
+    "description": "AI-driven research assistant with multi-layer memory and automation"
+  },
+  "integrations": {
+    "venice": {
+      "enabled": true
+    },
+    "github": {
+      "enabled": "${GITHUB_ENABLED}",
+      "token": "${GITHUB_TOKEN}",
+      "repoConfig": {
+        "owner": "${GITHUB_OWNER}",
+        "repo": "${GITHUB_REPO}",
+        "branch": "${GITHUB_BRANCH}"
+      },
+      "baseURL": "https://api.github.com"
+    },
+    "googleSheets": {
+      "enabled": "${GOOGLE_SHEETS_ENABLED}",
+      "apiKey": "${GOOGLE_API_KEY}",
+      "spreadsheetId": "${GOOGLE_SPREADSHEET_ID}",
+      "scopes": [
+        "https://www.googleapis.com/auth/spreadsheets"
+      ]
+    },
+    "slack": {
+      "webhookUrl": "${SLACK_WEBHOOK_URL}",
+      "isEnabled": "${SLACK_ENABLED}"
+    }
+  },
+  "aiProviders": {
+    "venice": {
+      "defaultModel": "${VENICE_DEFAULT_MODEL}",
+      "apiKeys": {
+        "global": "${VENICE_API_KEY}"
+      },
+      "baseURL": "${VENICE_API_URL}",
+      "settings": {
+        "timeoutSeconds": "${VENICE_TIMEOUT_SECONDS}"
+      }
+    }
+  },
+  "memorySystem": {
+    "enabled": true,
+    "layers": [
+      {
+        "name": "shortTerm",
+        "key": "shortTerm",
+        "maxSize": 100,
+        "ttl": 3600
+      },
+      {
+        "name": "working",
+        "key": "working",
+        "maxSize": 50,
+        "ttl": 86400
+      },
+      {
+        "name": "longTerm",
+        "key": "longTerm",
+        "maxSize": 1000,
+        "ttl": 2592000
+      }
+    ],
+    "maintenance": {
+      "autoConsolidate": "${MEMORY_AUTO_CONSOLIDATE}",
+      "consolidationThreshold": 0.8
+    }
+  },
+  "logging": {
+    "level": "${LOGGING_LEVEL}",
+    "console": true,
+    "file": true
+  },
+  "workflows": {
+    "autoResearch": {
+      "enabled": true,
+      "schedule": "0 */6 * * *"
+    },
+    "memoryConsolidation": {
+      "enabled": true,
+      "schedule": "0 0 * * *"
+    }
+  },
+  "security": {
+    "xssProtection": "1; mode=block",
+    "hstsMaxAge": 31536000,
+    "contentSecurityPolicy": "default-src https:"
+  }
+}

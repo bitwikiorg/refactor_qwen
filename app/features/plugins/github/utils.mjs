@@ -1,4 +1,4 @@
-import configService from '../../../config/default.js';
+import configService from '../../../config/default.mjs';
 const { execSync } = require('child_process'); // Added globally for reusability
 
 export async function fetchTerminalDefaultPrompt() {

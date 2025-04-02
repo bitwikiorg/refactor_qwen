@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.head.appendChild(bootstrapCSS);
     
     const bootstrapJS = document.createElement('script');
-    bootstrapJS.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js';
+    bootstrapJS.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.mjs';
     document.body.appendChild(bootstrapJS);
   }
 

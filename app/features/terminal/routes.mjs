@@ -1,5 +1,5 @@
 import { Router } from "express";
-import * as terminalService from "./service.mj s"; // Explicitly import service layer functions
+import * as terminalService from "./service.mjs"; // Fixed service file import
 import { getLogger } from "../../services/logger"; // Assuming centralized logging system
 
 const log = getLogger("TerminalRoutes");
@@ -67,10 +67,13 @@ export default function configureTerminalRoutes(app /* , diContainer */) {
                                 throw new Error(e.message);
                         }
                 },
-        ]).use(errorHandlerMiddleware);
+        ]);
 
         /** Secure Health Check Endpoint */
         router.get("/status/ping", (_, res) => res.sendStatus(204));
+
+        // Register the error handling middleware for all routes in this router
+        router.use(errorHandlerMiddleware);
 
         // Register routes & middlewares
         app.use("/terminal", router);

@@ -6,7 +6,12 @@ import { inject } from '../services/di-container';
 const logger = createLogger('scheduler.socket');  
 
 const schedulerService = inject('SchedulerService');  
-if (!schedulerService || !schedulerService.runMissionImmediately || !schedulerService.getActiveTasksSnapshot || !scheduler.service.taskUpdates$ ) {  
+if (
+  !schedulerService ||
+  !schedulerService.runMissionImmediately ||
+  !schedulerService.getActiveTasksSnapshot ||
+  !schedulerService.taskUpdates$ // Fixed incorrect property access
+) {  
   throw new Error("Missing required Scheduler Service dependencies"); // Explicit dependency validation at startup time  
 }  
 
@@ -21,25 +26,22 @@ ioNamespace.on('connection', (socket) => {
   // Track subscriptions for cleanup later during disconnection phase  
   let taskUpdateSubscription;  
 
-  const emitTaskStatusUpdate = async(taskIdOrData)=>{    
-    try{      
-      const taskId=typeof taskIdOrData==='string'?taskIdOrData : taskIdOrData.id;      
-
-      const statusType=taskIdOrData.status||'unknown';      
-
-      const taskDetails=await scheduler.service.getTaskDetails(taskId);      
-
+  const emitTaskStatusUpdate = async (taskIdOrData) => {    
+    try {      
+      const taskId = typeof taskIdOrData === 'string' ? taskIdOrData : taskIdOrData.id;      
+      const statusType = taskIdOrData.status || 'unknown';      
+      const taskDetails = await schedulerService.getTaskDetails(taskId); // Fixed incorrect property access      
       return socket.emit(        
         `task:${taskId}:update`,        
-        statusType===undefined ? new Error("Invalid status type"):statusType,
+        statusType === undefined ? new Error("Invalid status type") : statusType,
         taskDetails ?? {}      
       );    
-    }catch(err){      
-      emitSystemError(socket,err,"Failed_to_emit_task_update");    
+    } catch (err) {      
+      emitSystemError(socket, err, "Failed_to_emit_task_update");    
     }    
-};  
+  };  
 
-function emitSystemError(socket,error,eventName="generic_error"){    
+  function emitSystemError(socket,error,eventName="generic_error"){    
     return socket.emit(        
         eventName,
         {
@@ -48,67 +50,73 @@ function emitSystemError(socket,error,eventName="generic_error"){
             timestamp:new Date().toISOString()
         }
     );   
-};  
+  };  
 
-/* Event Handlers */  
+  /* Event Handlers */  
 
-socket.on('run_mission_now', async(payload)=>{    
-try{      
-// Input Validation Phase       
-if(!payload?.missionId){        
-throw new TypeError("Mission ID required");     
-}      
+  socket.on('run_mission_now', async(payload)=>{    
+    try {      
+      // Input Validation Phase       
+      if(!payload?.missionId){        
+        throw new TypeError("Mission ID required");     
+      }      
 
-// Validate Mission ID format matches UUID v3/5 standard     
-if(!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(payload.missionId)){         
-throw new RangeError(`Invalid Mission ID format ${payload.missionId}`);     
-}      
+      // Validate Mission ID format matches UUID v3/5 standard     
+      if(!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(payload.missionId)){         
+        throw new RangeError(`Invalid Mission ID format ${payload.missionId}`);     
+      }      
 
-// Execute action       
-const result=await scheduler.service.runMissionImmediately(payload.missionId);       
-emitTaskStatusUpdate({id:result.taskInstanceId,status:'queued'});   
+      // Execute action       
+      const result=await scheduler.service.runMissionImmediately(payload.missionId);       
+      emitTaskStatusUpdate({id:result.taskInstanceId,status:'queued'});   
 
-}catch(error){        
-emitSystemError(socket,error,'mission_run_error');     
-}});
+    } catch(error){        
+      emitSystemError(socket,error,'mission_run_error');     
+    }
+  });
 
-/* Subscription Management */  
+  /* Subscription Management */  
 
-async function initializeSubscriptions(){   
-taskUpdateSubscription=scheduler.service.taskUpdates$.subscribe({     // Assumes observable pattern here meets rx.Observable interface requirements   
-next:(delta)=>{         
-switch(delta.type){             
-case 'status':                
-emitTaskStatusUpdate(delta.task.id).catch(e=>logger.error(e));                
-break;             
-case 'structural_change':                
-syncFullState();                
-break;             
-default:                
-logger.warn(`Unhandled update type ${delta.type}`);         
-}}}); };  
+  async function initializeSubscriptions(){   
+    taskUpdateSubscription=scheduler.service.taskUpdates$.subscribe({     // Assumes observable pattern here meets rx.Observable interface requirements   
+      next:(delta)=>{         
+        switch(delta.type){             
+          case 'status':                
+            emitTaskStatusUpdate(delta.task.id).catch(e=>logger.error(e));                
+            break;             
+          case 'structural_change':                
+            syncFullState();                
+            break;             
+          default:                
+            logger.warn(`Unhandled update type ${delta.type}`);         
+        }
+      }
+    }); 
+  };  
 
-async function syncFullState(){   
-try{      
-const currentState=await scheduler.service.getActiveTasksSnapshot();           
-socket.emit('full_state',currentState);     // Send current state snapshot whenever structural changes occur after initial load   
+  async function syncFullState(){   
+    try {      
+      const currentState=await scheduler.service.getActiveTasksSnapshot();           
+      socket.emit('full_state',currentState);     // Send current state snapshot whenever structural changes occur after initial load   
 
-}catch(err){          
-logger.error(`Sync failed`,err.stack||err.toString());          
-emitSystemError(socket,err,'state_sync_failure');     }};
+    } catch(err){          
+      logger.error(`Sync failed`,err.stack||err.toString());          
+      emitSystemError(socket,err,'state_sync_failure');     
+    }
+  };
 
-/* Initial Sync & Setup */
-initializeSubscriptions();            
-syncFullState();
+  /* Initial Sync & Setup */
+  initializeSubscriptions();            
+  syncFullState();
 
-/* Disconnection Cleanup */
-socket.on('disconnect',(reason)=>{
-logger.info(`${connectionLogEntry} disconnected (${reason})`));    
+  /* Disconnection Cleanup */
+  socket.on('disconnect', (reason) => { // Fixed extra closing parenthesis
+    logger.info(`${connectionLogEntry} disconnected (${reason})`);    
 
-// Unsubscribe observables immediately upon disconnect prevent memory leaks   
-taskUpdateSubscription?.unsubscribe();    
+    // Unsubscribe observables immediately upon disconnect prevent memory leaks   
+    taskUpdateSubscription?.unsubscribe();    
 
-});
+  });
 
 }); // End connection handler closure
 

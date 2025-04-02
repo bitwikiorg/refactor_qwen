@@ -1,89 +1,107 @@
-
-import { MemCacheLayer } from './memory-layer.mjs';
-
-export const DEFAULT_TTL = 3600; // seconds
-const MAX_CAPACITY_THRESHOLD = 85; // percentage
-
-class NeuroMemCache extends MemCacheLayer {
-  #capacityThreshold;
-  
-  constructor(options = {}) {
-    super();
-    this.#capacityThreshold = options.capacityThreshold || MAX_CAPACITY_THRESHOLD;
-    this._capacity = options.capacity || 1000;
-    this.size = 0;
-  }
-  
-  get(key) {
-    const item = super.get(key);
-    if (!item) return undefined;
-    
-    // Check expiration
-    if (item.metadata.expires && new Date() > item.metadata.expires) {
-      super.delete(key);
-      return undefined;
-    }
-    
-    // Update access metadata
-    item.metadata.lastAccessed = new Date();
-    return item.value;
-  }
-  
-  set(key, value, options = {}) {
-    try {
-      // Check capacity and evict if needed
-      if (this.isFull()) {
-        this.deleteLeastUsed();
-      }
-      
-      // Format the entry with metadata
-      const entry = {
-        value,
-        metadata: {
-          created: new Date(),
-          lastAccessed: new Date(),
-          expires: options.ttl ? this.computeExpiration(options.ttl * 1000) : null
+class MemCache {
+    constructor(options = {}) {
+        this.cache = new Map();
+        this.defaultTTL = options.defaultTTL || 3600 * 1000; // Default 1 hour in milliseconds
+        this.cleanupInterval = null;
+        // Start automatic cleanup if an interval is provided
+        if (options.cleanupInterval) {
+            this.startCleanup(options.cleanupInterval);
         }
-      };
-      
-      super.set(key, entry);
-      this.size++;
-      return true;
-    } catch (err) {
-      console.error('Caching failed:', err.message, key?.toString?.());
-      return false;
     }
-  }
-  
-  isFull() {
-    return ((Math.round((this.size / this._capacity) * 1e4) / 1e2) >= this.#capacityThreshold);
-  }
-  
-  // Protected utility methods
-  computeExpiration(durationMs = DEFAULT_TTL * 1e3) {
-    return new Date(Date.now() + durationMs);
-  }
-  
-  deleteLeastUsed() {
-    const entries = this.entries();
-    let oldestEntry = null;
-    let minAccessTime = Number.POSITIVE_INFINITY;
-    
-    for (const [k, v] of entries) {
-      const lastUse = v.metadata.lastAccessed.getTime();
-      if (lastUse < minAccessTime) {
-        minAccessTime = lastUse;
-        oldestEntry = [k, v];
-      }
+    /**
+     * Set a value in the cache with optional TTL
+     * @param key The cache key
+     * @param value The value to store
+     * @param ttl Time-to-live in milliseconds (optional, uses default if not specified)
+     */
+    set(key, value, ttl) {
+        const expiry = ttl !== undefined
+            ? Date.now() + ttl
+            : (ttl === 0 ? null : Date.now() + this.defaultTTL);
+        this.cache.set(key, { value, expiry });
     }
-    
-    if (oldestEntry) {
-      this.size--;
-      return oldestEntry[0] && super.delete(oldestEntry[0]);
-    } else {
-      return undefined;
+    /**
+     * Get a value from the cache
+     * @param key The cache key
+     * @returns The cached value or undefined if not found or expired
+     */
+    get(key) {
+        const item = this.cache.get(key);
+        if (!item) {
+            return undefined;
+        }
+        // Check if item has expired
+        if (item.expiry !== null && item.expiry < Date.now()) {
+            this.cache.delete(key);
+            return undefined;
+        }
+        return item.value;
     }
-  }
+    /**
+     * Check if a key exists and is not expired
+     * @param key The cache key
+     * @returns True if the key exists and is not expired
+     */
+    has(key) {
+        const item = this.cache.get(key);
+        if (!item) {
+            return false;
+        }
+        if (item.expiry !== null && item.expiry < Date.now()) {
+            this.cache.delete(key);
+            return false;
+        }
+        return true;
+    }
+    /**
+     * Delete a key from the cache
+     * @param key The cache key to delete
+     * @returns True if the key was found and deleted
+     */
+    delete(key) {
+        return this.cache.delete(key);
+    }
+    /**
+     * Clear all items from the cache
+     */
+    clear() {
+        this.cache.clear();
+    }
+    /**
+     * Get the size of the cache
+     */
+    get size() {
+        this.cleanup(); // Clean expired items before returning size
+        return this.cache.size;
+    }
+    /**
+     * Clean up expired items from the cache
+     */
+    cleanup() {
+        const now = Date.now();
+        for (const [key, item] of this.cache.entries()) {
+            if (item.expiry !== null && item.expiry < now) {
+                this.cache.delete(key);
+            }
+        }
+    }
+    /**
+     * Start automatic cleanup at the specified interval
+     * @param interval Cleanup interval in milliseconds
+     */
+    startCleanup(interval) {
+        this.stopCleanup();
+        this.cleanupInterval = setInterval(() => this.cleanup(), interval);
+    }
+    /**
+     * Stop automatic cleanup
+     */
+    stopCleanup() {
+        if (this.cleanupInterval) {
+            clearInterval(this.cleanupInterval);
+            this.cleanupInterval = null;
+        }
+    }
 }
-
-export { NeuroMemCache, MemCacheLayer };
+export default MemCache;
+//# sourceMappingURL=memcache.js.map

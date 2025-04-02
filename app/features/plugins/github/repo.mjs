@@ -1,5 +1,5 @@
 import { Octokit } from "@octokit/rest";
-import configService from "../../../config/default.js";
+import configService from "../../../config/default.mjs";
 import child_process from "child_process";
 
 const GITHUB_TOKEN = configService.get("GITHUB_TOKEN");

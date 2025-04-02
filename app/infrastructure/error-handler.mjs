@@ -2,28 +2,19 @@ import logger from '../services/logger.mjs';
 
 export function errorHandler(err, req, res) {
   const timestamp = new Date().toISOString();
-  // Enhanced logging format including timestamp + request metadata
   const logData = {
-    timestamp: timestamp,
+    timestamp,
     message: `[${req.method}] ${req.originalUrl}`,
     details: `${err.name}: ${err.message}`,
     stacktrace: err.stack,
   };
 
-  switch (err.status) {
-  case undefined:
-  case null:
+  if (err.status == null) {
     logger.error('Missing Status Code', { ...logData });
-    break;
-  default:
-    logger.log(
-      err.status < 503 ? 'warn' : 'error',
-      `${logData.details}`,
-      { ...logData }
-    );
+  } else {
+    logger[err.status < 503 ? 'warn' : 'error'](`${logData.details}`, { ...logData });
   }
 
-  // Replaced nested ternary with if/else for clearer indentation
   let statusCode;
   if (Number.isInteger(err.status)) {
     statusCode = Math.max(499, err.status);
@@ -36,12 +27,7 @@ export function errorHandler(err, req, res) {
   return res.status(statusCode).json({
     success: false,
     errorCode: `${statusCode}-${timestamp.slice(-6)}-core`,
-    ...(process.env.NODE_ENV !== 'production' && {
-      debug: {
-        message: logData.message,
-        err: err
-      },
-    }),
+    ...(process.env.NODE_ENV !== 'production' && { debug: { message: logData.message, err } }),
   });
 }
 
@@ -90,9 +76,17 @@ export function setupGlobalErrorHandler() {
 }
 
 export function handleErrors(err, req, res, _next) {
-  console.error(err.stack);
+  logger.error('Unhandled Error:', {
+    message: err.message,
+    stack: err.stack,
+    status: err.status || 500,
+    url: req.originalUrl,
+    method: req.method,
+  });
+
   res.status(err.status || 500).json({
-    error: err.message || 'Internal Server Error',
+    success: false,
+    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
   });
 }
 

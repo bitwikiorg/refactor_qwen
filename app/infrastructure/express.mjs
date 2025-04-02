@@ -4,6 +4,9 @@ import { Server } from 'socket.io';
 import configService from '../services/config.mjs';
 import fs from 'fs'; // Import fs module
 import logger from '../services/logger.mjs'; // Import logger module
+import process from 'process';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 const DEFAULT_PORT = process.env.SERVER_PORT || 3000;
 
@@ -61,7 +64,7 @@ async function configureSecurityHeaders(_app) {
   _app.disable('x-powered-by');
   _app.use((_req, _res, next) => {
     _res.setHeader('X-DNS-Prefetch-Control', 'off');
-    _res.setHeader('X-XSS-Protection', '1; mode=block');
+    _res.setHeader('X-XSS-Prefetch-Control', '1; mode=block');
     next();
   });
 }
@@ -98,6 +101,19 @@ async function configureStaticAssets(_app) {
         etag: true,
         lastModified: true
       }));
+
+    _app.use('/css', express.static(publicDirPath + '/css', {
+      setHeaders: (res, path) => {
+        logger.info(`Serving static CSS: ${path}`);
+      }
+    }));
+
+    _app.use('/js', express.static(publicDirPath + '/js', {
+      setHeaders: (res, path) => {
+        logger.info(`Serving static JS: ${path}`);
+      }
+    }));
+
   } catch (e) {
     logger.error(e.message);
     throw e;

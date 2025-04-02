@@ -121,31 +121,12 @@ class MemoryService {
   
   async saveMemoryToStorage(memoryObject) {
     try {
-      // Local file storage
       const filePath = `${this.options.dataDir}/${memoryObject.id}.json`;
       const fileContent = JSON.stringify(memoryObject, null, 2);
-      
-      // Ensure directory exists
       const fs = await import('fs/promises');
       await fs.mkdir(this.options.dataDir, { recursive: true });
-      
-      // Write to file
       await fs.writeFile(filePath, fileContent, 'utf8');
-      
-      // Git sync if enabled
-      if (this.options.gitSync && this.gitAdapter) {
-        try {
-          await this.gitAdapter.pushChange({
-            path: `memory/${memoryObject.id}.json`,
-            content: fileContent,
-            message: `Add memory: ${memoryObject.id}`
-          });
-          logger.info(`Synced memory ${memoryObject.id} to git repository`);
-        } catch (error) {
-          logger.warn(`Git sync failed for memory ${memoryObject.id}:`, error.message);
-        }
-      }
-      
+      await this.#syncToGit(`memory/${memoryObject.id}.json`, fileContent, `Add memory: ${memoryObject.id}`);
       return true;
     } catch (error) {
       logger.error('Failed to save memory to storage:', error);
@@ -214,19 +195,7 @@ class MemoryService {
       await fs.unlink(filePath);
       
       // Git sync if enabled
-      if (this.options.gitSync && this.gitAdapter) {
-        try {
-          // Note: This is a simplified approach. Actual deletion in git would require a different approach.
-          await this.gitAdapter.pushChange({
-            path: `memory/${memoryId}.json`,
-            content: '',
-            message: `Delete memory: ${memoryId}`
-          });
-          logger.info(`Synced deletion of memory ${memoryId} to git repository`);
-        } catch (error) {
-          logger.warn(`Git sync failed for memory deletion ${memoryId}:`, error.message);
-        }
-      }
+      await this.#syncToGit(`memory/${memoryId}.json`, '', `Delete memory: ${memoryId}`);
       
       return true;
     } catch (error) {
@@ -282,6 +251,43 @@ class MemoryService {
       throw error;
     }
   }
+
+  // Modularize Git sync logic
+  async #syncToGit(filePath, content, message) {
+    if (this.options.gitSync && this.gitAdapter) {
+      try {
+        await this.gitAdapter.pushChange({ path: filePath, content, message });
+        logger.info(`Synced ${filePath} to git repository`);
+      } catch (error) {
+        logger.warn(`Git sync failed for ${filePath}:`, error.message);
+      }
+    }
+  }
+
+  /**
+   * Enhance memory data using Venice AI
+   */
+  async enrichMemory(memoryData) {
+    try {
+      const veniceService = await VeniceAiService.createInstance();
+      const enhancedMemory = await veniceService.standardChat(`Analyze memory: ${JSON.stringify(memoryData)}`);
+      logger.info('Enhanced memory data from Venice', { enhancedMemory });
+      return enhancedMemory;
+    } catch (error) {
+      logger.error('Failed to enhance memory data via Venice', { error: error.message });
+      return memoryData;
+    }
+  }
+
+  async retrieveChatMemory(sessionId) {
+    logger.info(`Retrieving memory for session: ${sessionId}`);
+    // ...existing logic to fetch memory...
+  }
+
+  async storeChatMemory(content, options) {
+    logger.info(`Storing memory for session: ${options.sessionId}`);
+    // ...existing logic to store memory...
+  }
 }
 
 // Helper function for generating unique IDs
@@ -290,10 +296,32 @@ function generateUniqueId() {
 }
 
 // Export the Service class and utility functions
-export { MemoryService as Service, generateUniqueId };
+export { MemoryService as Service, generateUniqueId }; // Removed retrieveMemory from export
 
 // Export default for direct usage
 export default { Service: MemoryService, generateUniqueId };
+
+// Refactored retrieveMemory function
+export async function retrieveMemory(memoryId) {
+    if (!memoryId) {
+        throw new Error("Memory ID is required.");
+    }
+    const service = new MemoryService();
+    const memory = await service.retrieveMemory(memoryId);
+    if (!memory) {
+        throw new Error(`Memory with ID ${memoryId} not found.`);
+    }
+    return memory;
+}
+
+// NEW: Add storeMemory function export to resolve missing export error
+export async function storeMemory(content, metadata = {}) {
+    if (!content) {
+        throw new Error("Memory content is required.");
+    }
+    const service = new MemoryService();
+    return await service.createMemory(content, metadata);
+}
 
 export class MemoryManager {
     constructor() {

@@ -7,7 +7,7 @@ import { invalidateSessions } from "./service";
 io.on("connection", (socket) => {
   socket.on("request-role-update", async (payload) => {
     try {
-      const updatedUser = await validateAndExecuteUpdate(payload.userId);
+      const updatedUser = await validateAndExecuteUpdate(payload.userId, payload.newRoleId);
       emitSuccess(socket);
     } catch (error) {
       handleAuthError(socket)(error);
@@ -17,7 +17,8 @@ io.on("connection", (socket) => {
   socket.on("logout-all-sessions", async (userId) => {
     try {
       await terminateAllUserTokens(userId);
-      emitLoggedOutEvent(socket);
+      // Use socket.emit or socket.to with a valid session/group context.
+      socket.emit("logged-out", { status: "success" });
     } catch (error) {
       handleAuthError(socket)(error);
     }

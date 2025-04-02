@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { getLogger } from '../../services/logger.mjs';
+import { randomUUID } from 'crypto';
+import { getLoggerInstance } from '../../services/logger.mjs'; // Fixed import path
 import ChatRoutes from './routes.mjs';
 import initializeSockets from './socket.mjs';
 
-const log = getLogger('ChatModule');
+const log = getLoggerInstance({ module: 'ChatModule' }); // Fixed logger instance
 
 async function bootstrap(app) {
   if (app.get('CHAT_MODULE_INITIALIZED')) {
@@ -43,8 +44,8 @@ function initializeCoreAI(app) {
 export default {
   initializeCoreAI,
   bootstrap,
-  getDefaultRoomId: () => crypto.randomUUID(),
-  configure: (options = {}) => { /* Configure implementation */ }
+  getDefaultRoomId: () => randomUUID(),
+  configure: () => { /* Configure implementation */ } // Removed unused `options` parameter
 };
 
-export { bootstrap };
+export { bootstrap, initializeCoreAI };
