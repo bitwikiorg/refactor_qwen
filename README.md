@@ -10,6 +10,7 @@ when possible use our existing file infrastructure and modular system to finaliz
 
 make sure we already implemented some of these gaps check the codebase to validate if we already included these and remove from gaps.md when they are considered to be complete and verified that they are complete. 
 
+![image](https://github.com/user-attachments/assets/63008ed9-63f6-4590-840c-d03e9058dff7)
 
 
 
